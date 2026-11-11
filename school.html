@@ -148,27 +148,32 @@
     });
   }
 
-  function speakEN(nickname, fullname, callback) {
-    const text = `Calling for ${nickname} ${fullname}. Please come to the gate.`;
+  function speakEN(nickname, fullname, studentYear, callback) {
+    const yearAnnouncement = studentYear ? `from ${studentYear}` : '';
+    const text = `Attention please. Calling for ${nickname} ${fullname} ${yearAnnouncement}. Please come to the pickup zone.`;
     
-    const speech1 = new SpeechSynthesisUtterance(text);
-    speech1.lang = 'en-US';
-    speech1.rate = 0.85;
+    // ยกเลิกเสียงที่อาจค้างอยู่ก่อนหน้า
+    window.speechSynthesis.cancel();
 
-    speech1.onend = () => {
-      setTimeout(() => {
-        const speech2 = new SpeechSynthesisUtterance(text);
-        speech2.lang = 'en-US';
-        speech2.rate = 0.85;
-        speech2.onend = () => {
-          if (callback) callback();
-        };
-        window.speechSynthesis.speak(speech2);
-      }, 1500);
+    const speech = new SpeechSynthesisUtterance(text);
+    speech.lang = 'en-US';
+    speech.rate = 0.85;
+
+    // ดึงรายการเสียงทั้งหมดในเครื่องเพื่อ ล็อกเสียงตัวแรกที่เจอ (ป้องกันเสียงสลับ ชาย/หญิง)
+    const voices = window.speechSynthesis.getVoices();
+    const enVoice = voices.find(v => v.lang.includes('en'));
+    if (enVoice) {
+      speech.voice = enVoice;
+    }
+
+    // เมื่ออ่านจบ 1 รอบ ให้ส่งสัญญาณไปทำคิวถัดไปทันที (ไม่อ่านซ้ำแล้ว)
+    speech.onend = () => {
+      if (callback) callback();
     };
 
-    window.speechSynthesis.speak(speech1);
+    speech.onerror = () => {
+      if (callback) callback();
+    };
+
+    window.speechSynthesis.speak(speech);
   }
-</script>
-</body>
-</html>
