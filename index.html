@@ -26,3 +26,91 @@
     
     <div class="input-group">
       <label>Nickname:</label>
+      <input type="text" id="nickname" placeholder="e.g. Alex">
+    </div>
+
+    <div class="input-group">
+      <label>Full Name:</label>
+      <input type="text" id="fullname" placeholder="e.g. Alex Smith">
+    </div>
+
+    <div class="input-group">
+      <label>Year Group:</label>
+      <select id="studentYear">
+        <option value="">-- Select Year --</option>
+        <option value="Year 1">Year 1</option>
+        <option value="Year 2">Year 2</option>
+        <option value="Year 3">Year 3</option>
+        <option value="Year 4">Year 4</option>
+        <option value="Year 5">Year 5</option>
+        <option value="Year 6">Year 6</option>
+        <option value="Year 7">Year 7</option>
+        <option value="Year 8">Year 8</option>
+        <option value="Year 9">Year 9</option>
+        <option value="Year 10">Year 10</option>
+        <option value="Year 11">Year 11</option>
+        <option value="Year 12">Year 12</option>
+        <option value="Year 13">Year 13</option>
+      </select>
+    </div>
+
+    <button id="btnRequest" onclick="sendPickupRequest()">Submit Request</button>
+    <p id="statusMsg" style="color: #28a745; font-weight: 600; font-size: 15px; margin-top: 15px; text-align: center;"></p>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDg0_AiLLITFAdqgN0AZk-l0vGc--HlAzU",
+    authDomain: "ips-student-pickup-system.firebaseapp.com",
+    databaseURL: "https://ips-student-pickup-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ips-student-pickup-system",
+    storageBucket: "ips-student-pickup-system.firebasestorage.app",
+    messagingSenderId: "732917618676",
+    appId: "1:732917618676:web:9b37c6cb43casf15a6cba1",
+    measurementId: "G-Y3KESCV89G"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  const pickupRef = database.ref('pickup_queue');
+
+  const COOLDOWN_TIME = 10 * 60 * 1000; // 10 minutes cooldown
+
+  function sendPickupRequest() {
+    const nickname = document.getElementById('nickname').value.trim();
+    const fullname = document.getElementById('fullname').value.trim();
+    const studentYear = document.getElementById('studentYear').value;
+    const statusMsg = document.getElementById('statusMsg');
+
+    if (!nickname || !fullname || !studentYear) {
+      alert("Please fill in Nickname, Full Name, and select Year Group.");
+      return;
+    }
+
+    const studentKey = `cooldown_${nickname.toLowerCase()}_${fullname.toLowerCase()}`;
+    const lastCalled = localStorage.getItem(studentKey);
+    const now = Date.now();
+
+    if (lastCalled && (now - parseInt(lastCalled)) < COOLDOWN_TIME) {
+      const remainingMinutes = Math.ceil((COOLDOWN_TIME - (now - parseInt(lastCalled))) / 60000);
+      alert(`This student was recently requested. Please wait ${remainingMinutes} minute(s) before trying again.`);
+      return;
+    }
+
+    pickupRef.push({
+      nickname: nickname,
+      fullname: fullname,
+      studentYear: studentYear,
+      timestamp: now
+    });
+
+    localStorage.setItem(studentKey, now.toString());
+    statusMsg.innerText = `Request sent for ${nickname} (${studentYear})! Please wait.`;
+    document.getElementById('nickname').value = '';
+    document.getElementById('fullname').value = '';
+    document.getElementById('studentYear').value = '';
+  }
+</script>
+</body>
+</html>
