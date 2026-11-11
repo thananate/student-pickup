@@ -14,7 +14,7 @@
     .input-group { margin-bottom: 15px; text-align: left; }
     label { font-weight: 600; display: block; margin-bottom: 5px; color: #444; }
     input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; background-color: white; }
-    button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+    button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 10px; }
     button:hover { background-color: #1557b0; }
   </style>
 </head>
@@ -75,7 +75,7 @@
   const database = firebase.database();
   const pickupRef = database.ref('pickup_queue');
 
-  const COOLDOWN_TIME = 10 * 60 * 1000; // 10 minutes cooldown
+  const COOLDOWN_TIME = 10 * 60 * 1000;
 
   function sendPickupRequest() {
     const nickname = document.getElementById('nickname').value.trim();
