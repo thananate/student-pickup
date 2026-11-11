@@ -40,4 +40,93 @@
     
     <div class="input-group">
       <label>Student's Nickname (ชื่อเล่น):</label>
-      <input type="text" id="nickname" placeholder="e
+      <input type="text" id="nickname" placeholder="e.g. Alex">
+    </div>
+    <div class="input-group">
+      <label>Student's Full Name (ชื่อจริง):</label>
+      <input type="text" id="fullname" placeholder="e.g. Alex Smith">
+    </div>
+    <button id="btnRequest" onclick="sendPickupRequest()">Request Call (กดเรียก)</button>
+    <p id="statusMsg" style="color: #666; font-size: 14px; margin-top: 15px;"></p>
+  </div>
+
+  <!-- 2. หน้าสำหรับโรงเรียน / ประกาศเสียง (Announcer & Queue View) -->
+  <div class="card" id="schoolView" style="display: none;">
+    <h2>School Queue Monitor</h2>
+    <p>สถานะประกาศเสียง: <strong id="speakingStatus" style="color: #d93025;">รอคิว...</strong></p>
+    <hr>
+    
+    <h3>⏳ รายการคิวที่รอประกาศ (<span id="queueCount">0</span>)</h3>
+    <div id="queueList"></div>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+    <h3 style="color: #34a853;">✅ รายการที่ประกาศแล้ว (Called History)</h3>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDg0_AiLLITFAdqgN0AZk-l0vGc--HlAzU",
+    authDomain: "ips-student-pickup-system.firebaseapp.com",
+    databaseURL: "https://ips-student-pickup-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ips-student-pickup-system",
+    storageBucket: "ips-student-pickup-system.firebasestorage.app",
+    messagingSenderId: "732917618676",
+    appId: "1:732917618676:web:9b37c6cb43casf15a6cba1",
+    measurementId: "G-Y3KESCV89G"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  const pickupRef = database.ref('pickup_queue');
+
+  const COOLDOWN_TIME = 10 * 60 * 1000;
+  let queueData = [];
+  let historyData = [];
+  let isSpeaking = false;
+  let isSchoolMode = false; // ปิดระบบเสียงเป็นค่าเริ่มต้น
+
+  // --- ระบบตรวจเช็คเวลาอัตโนมัติ (เริ่ม 15:15 น.) ---
+  function checkServiceTime() {
+    const now = new Date();
+    const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
+    const targetMinutes = 15 * 60 + 15; // 15:15 น.
+
+    const btnRequest = document.getElementById('btnRequest');
+    const badge = document.getElementById('timeStatusBadge');
+
+    if (currentTotalMinutes >= targetMinutes) {
+      btnRequest.disabled = false;
+      badge.style.backgroundColor = '#d4edda';
+      badge.style.color = '#155724';
+      badge.innerHTML = '✅ ระบบเปิดให้บริการรับนักเรียนแล้ว (3:15 PM)';
+    } else {
+      btnRequest.disabled = true;
+      badge.style.backgroundColor = '#fff3cd';
+      badge.style.color = '#856404';
+      badge.innerHTML = '🕒 ระบบจะเปิดให้กดเรียกเวลา 15:15 น.';
+    }
+  }
+
+  setInterval(checkServiceTime, 5000);
+  checkServiceTime();
+
+  // --- ฝั่งผู้ปกครอง ---
+  function sendPickupRequest() {
+    const nickname = document.getElementById('nickname').value.trim();
+    const fullname = document.getElementById('fullname').value.trim();
+    const statusMsg = document.getElementById('statusMsg');
+
+    if (!nickname || !fullname) {
+      alert("Please fill in both Nickname and Full Name.");
+      return;
+    }
+
+    const studentKey = `cooldown_${nickname.toLowerCase()}_${fullname.toLowerCase()}`;
+    const lastCalled = localStorage.getItem(studentKey);
+    const now = Date.now();
+
+    if (lastCalled && (now - parseInt(lastCalled)) < COOLDOWN_TIME) {
+      const remainingMinutes = Math.ceil((COOLDOWN_TIME -
