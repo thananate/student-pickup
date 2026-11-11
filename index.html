@@ -54,4 +54,22 @@
   <div class="card" id="schoolView" style="display: none;">
     <h2>School Queue Monitor</h2>
     <button id="btnStartAudio" class="btn-start" onclick="activateSchoolAudio()">🔊 กดเพื่อเปิดระบบเสียงและเริ่มรับคิว</button>
-    <p>สถานะประกาศเสียง: <strong id="speakingStatus" style="color: #
+    <p>สถานะประกาศเสียง: <strong id="speakingStatus" style="color: #d93025;">รอเปิดระบบเสียง...</strong></p>
+    <hr>
+    
+    <h3>⏳ รายการคิวที่รอประกาศ (<span id="queueCount">0</span>)</h3>
+    <div id="queueList"></div>
+
+    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+
+    <h3 style="color: #34a853;">✅ รายการที่ประกาศแล้ว (Called History)</h3>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDg0_AiLLITFAdqgN0AZk-l0vGc--HlAzU",
+    authDomain: "ips-student-pickup-system.firebaseapp.com",
+    databaseURL: "https://ips-student-pickup-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ips-student-pickup-
