@@ -9,18 +9,21 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
     body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-    .container { max-width: 600px; margin: 0 auto; }
+    .container { max-width: 650px; margin: 0 auto; }
     .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; }
-    h2 { color: #1a73e8; margin-top: 0; }
+    h2, h3 { color: #1a73e8; margin-top: 0; }
     .input-group { margin-bottom: 15px; text-align: left; }
     label { font-weight: 600; display: block; margin-bottom: 5px; color: #444; }
     input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
     button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     button:hover { background-color: #1557b0; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
     .queue-item { display: flex; justify-content: space-between; align-items: center; background: #e8f0fe; padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; border-left: 5px solid #1a73e8; }
+    .history-item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; border-left: 5px solid #34a853; color: #555; }
     .now-calling { background: #e6f4ea; border-left-color: #34a853; font-weight: bold; }
     .mode-switch { text-align: right; margin-bottom: 10px; }
     .mode-switch button { width: auto; padding: 6px 12px; font-size: 12px; background: #5f6368; }
+    .time-badge { background: #fff3cd; color: #856404; padding: 8px 12px; border-radius: 6px; font-size: 14px; margin-bottom: 15px; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -33,174 +36,8 @@
   <!-- 1. หน้าสำหรับผู้ปกครอง (Parent View) -->
   <div class="card" id="parentView">
     <h2>Student Pickup Request</h2>
+    <div id="timeStatusBadge" class="time-badge">🕒 กำลังตรวจสอบเวลาให้บริการ...</div>
+    
     <div class="input-group">
       <label>Student's Nickname (ชื่อเล่น):</label>
-      <input type="text" id="nickname" placeholder="e.g. Alex">
-    </div>
-    <div class="input-group">
-      <label>Student's Full Name (ชื่อจริง):</label>
-      <input type="text" id="fullname" placeholder="e.g. Alex Smith">
-    </div>
-    <button onclick="sendPickupRequest()">Request Call (กดเรียก)</button>
-    <p id="statusMsg" style="color: #666; font-size: 14px; margin-top: 15px;"></p>
-  </div>
-
-  <!-- 2. หน้าสำหรับโรงเรียน / ประกาศเสียง (Announcer & Queue View) -->
-  <div class="card" id="schoolView" style="display: none;">
-    <h2>School Queue Monitor</h2>
-    <p>สถานะประกาศเสียง: <strong id="speakingStatus" style="color: #d93025;">รอคิว...</strong></p>
-    <hr>
-    <h3>รายการคิวที่รอประกาศ (<span id="queueCount">0</span>)</h3>
-    <div id="queueList"></div>
-  </div>
-</div>
-
-<script>
-  // Firebase Config ใส่รหัสของคุณให้เรียบร้อยแล้ว
-  const firebaseConfig = {
-    apiKey: "AIzaSyDg0_AiLLITFAdqgN0AZk-l0vGc--HlAzU",
-    authDomain: "ips-student-pickup-system.firebaseapp.com",
-    databaseURL: "https://ips-student-pickup-system-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "ips-student-pickup-system",
-    storageBucket: "ips-student-pickup-system.firebasestorage.app",
-    messagingSenderId: "732917618676",
-    appId: "1:732917618676:web:9b37c6cb43casf15a6cba1",
-    measurementId: "G-Y3KESCV89G"
-  };
-
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
-  const database = firebase.database();
-  const pickupRef = database.ref('pickup_queue');
-
-  // Cooldown Setup (10 นาที)
-  const COOLDOWN_TIME = 10 * 60 * 1000;
-
-  let queueData = [];
-  let isSpeaking = false;
-
-  // --- ฝั่งผู้ปกครอง ---
-  function sendPickupRequest() {
-    const nickname = document.getElementById('nickname').value.trim();
-    const fullname = document.getElementById('fullname').value.trim();
-    const statusMsg = document.getElementById('statusMsg');
-
-    if (!nickname || !fullname) {
-      alert("Please fill in both Nickname and Full Name.");
-      return;
-    }
-
-    const studentKey = `cooldown_${nickname.toLowerCase()}_${fullname.toLowerCase()}`;
-    const lastCalled = localStorage.getItem(studentKey);
-    const now = Date.now();
-
-    if (lastCalled && (now - parseInt(lastCalled)) < COOLDOWN_TIME) {
-      const remainingMinutes = Math.ceil((COOLDOWN_TIME - (now - parseInt(lastCalled))) / 60000);
-      alert(`This student was recently called. Please wait ${remainingMinutes} minute(s).`);
-      return;
-    }
-
-    // ส่งข้อมูลไป Firebase Realtime Database
-    pickupRef.push({
-      nickname: nickname,
-      fullname: fullname,
-      timestamp: now
-    });
-
-    localStorage.setItem(studentKey, now.toString());
-    statusMsg.innerText = `Sent request for ${nickname}! Please wait.`;
-    document.getElementById('nickname').value = '';
-    document.getElementById('fullname').value = '';
-  }
-
-  // --- ฝั่งโรงเรียน (Real-time Queue Listener) ---
-  pickupRef.on('child_added', (snapshot) => {
-    const student = { id: snapshot.key, ...snapshot.val() };
-    queueData.push(student);
-    renderQueue();
-    
-    if (!isSpeaking) {
-      processQueue();
-    }
-  });
-
-  function renderQueue() {
-    const queueListDiv = document.getElementById('queueList');
-    document.getElementById('queueCount').innerText = queueData.length;
-    queueListDiv.innerHTML = '';
-
-    queueData.forEach((student, index) => {
-      const div = document.createElement('div');
-      div.className = `queue-item ${index === 0 && isSpeaking ? 'now-calling' : ''}`;
-      div.innerHTML = `
-        <div>
-          <strong>${index + 1}. ${student.nickname}</strong> (${student.fullname})
-        </div>
-        <small>${index === 0 && isSpeaking ? '🔊 Calling...' : 'Waiting'}</small>
-      `;
-      queueListDiv.appendChild(div);
-    });
-  }
-
-  function processQueue() {
-    if (queueData.length === 0) {
-      isSpeaking = false;
-      document.getElementById('speakingStatus').innerText = "รอคิว...";
-      renderQueue();
-      return;
-    }
-
-    isSpeaking = true;
-    const current = queueData[0];
-    document.getElementById('speakingStatus').innerText = `กำลังประกาศ: ${current.nickname}`;
-    renderQueue();
-
-    speakEN(current.nickname, current.fullname, () => {
-      // เมื่อพูดจบ ลบออกจากคิว
-      pickupRef.child(current.id).remove();
-      queueData.shift();
-      
-      setTimeout(() => {
-        processQueue();
-      }, 2000); // เว้น 2 วินาทีก่อนพูดคนถัดไป
-    });
-  }
-
-  // เสียงพูดภาษาอังกฤษ 2 รอบ
-  function speakEN(nickname, fullname, callback) {
-    const text = `Attention please. Calling for ${nickname} ${fullname}. Please come to the pickup zone.`;
-    
-    const speech1 = new SpeechSynthesisUtterance(text);
-    speech1.lang = 'en-US';
-    speech1.rate = 0.85;
-
-    speech1.onend = () => {
-      setTimeout(() => {
-        const speech2 = new SpeechSynthesisUtterance(text);
-        speech2.lang = 'en-US';
-        speech2.rate = 0.85;
-        speech2.onend = () => {
-          if (callback) callback();
-        };
-        window.speechSynthesis.speak(speech2);
-      }, 1500);
-    };
-
-    window.speechSynthesis.speak(speech1);
-  }
-
-  // สลับโหมดการแสดงผล
-  function toggleView() {
-    const parentView = document.getElementById('parentView');
-    const schoolView = document.getElementById('schoolView');
-    if (parentView.style.display === 'none') {
-      parentView.style.display = 'block';
-      schoolView.style.display = 'none';
-    } else {
-      parentView.style.display = 'none';
-      schoolView.style.display = 'block';
-    }
-  }
-</script>
-</body>
-</html>
+      <input type="text" id="nickname" placeholder="e
