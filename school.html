@@ -14,6 +14,7 @@
     .queue-item { display: flex; justify-content: space-between; align-items: center; background: #e8f0fe; padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; border-left: 5px solid #1a73e8; }
     .history-item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; border-left: 5px solid #34a853; color: #555; }
     .now-calling { background: #e6f4ea; border-left-color: #34a853; font-weight: bold; }
+    .year-tag { background: #1a73e8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
     button { width: 100%; background-color: #34a853; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-bottom: 15px; }
     button:hover { background-color: #2d8e47; }
   </style>
@@ -58,6 +59,11 @@
   let isSpeaking = false;
   let isAudioActive = false;
 
+  // โหลดรายการเสียงเตรียมไว้ในเบราว์เซอร์
+  window.speechSynthesis.onvoiceschanged = () => {
+    window.speechSynthesis.getVoices();
+  };
+
   function startAudioSystem() {
     isAudioActive = true;
     document.getElementById('btnStart').style.display = 'none';
@@ -90,9 +96,10 @@
     queueData.forEach((student, index) => {
       const div = document.createElement('div');
       div.className = `queue-item ${index === 0 && isSpeaking ? 'now-calling' : ''}`;
+      const yearText = student.studentYear ? `<span class="year-tag">${student.studentYear}</span>` : '';
       div.innerHTML = `
         <div>
-          <strong>${index + 1}. ${student.nickname}</strong> (${student.fullname})
+          <strong>${index + 1}. ${student.nickname}</strong> (${student.fullname}) ${yearText}
         </div>
         <small>${index === 0 && isSpeaking ? '🔊 Calling...' : 'Waiting'}</small>
       `;
@@ -108,9 +115,10 @@
       const timeStr = new Date(student.calledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       const div = document.createElement('div');
       div.className = 'history-item';
+      const yearText = student.studentYear ? `<span class="year-tag" style="background: #34a853;">${student.studentYear}</span>` : '';
       div.innerHTML = `
         <div>
-          <strong>${student.nickname}</strong> (${student.fullname})
+          <strong>${student.nickname}</strong> (${student.fullname}) ${yearText}
         </div>
         <small style="color: #28a745; font-weight: 500;">Called at ${timeStr}</small>
       `;
@@ -133,7 +141,7 @@
     document.getElementById('speakingStatus').style.color = "#d93025";
     renderQueue();
 
-    speakEN(current.nickname, current.fullname, () => {
+    speakEN(current.nickname, current.fullname, current.studentYear, () => {
       pickupRef.child(current.id).remove();
       
       const finishedStudent = queueData.shift();
@@ -150,30 +158,49 @@
 
   function speakEN(nickname, fullname, studentYear, callback) {
     const yearAnnouncement = studentYear ? `from ${studentYear}` : '';
-    const text = `Calling for ${nickname} ${fullname} ${yearAnnouncement}. Please come to the gate.`;
+    const text = `Attention please. Calling for ${nickname} ${fullname} ${yearAnnouncement}. Please come to the pickup zone.`;
     
-    // ยกเลิกเสียงที่อาจค้างอยู่ก่อนหน้า
     window.speechSynthesis.cancel();
 
-    const speech = new SpeechSynthesisUtterance(text);
-    speech.lang = 'en-US';
-    speech.rate = 0.85;
-
-    // ดึงรายการเสียงทั้งหมดในเครื่องเพื่อ ล็อกเสียงตัวแรกที่เจอ (ป้องกันเสียงสลับ ชาย/หญิง)
+    // ดึงรายการเสียงและค้นหา "เสียงผู้หญิง" ภาษาอังกฤษ
     const voices = window.speechSynthesis.getVoices();
-    const enVoice = voices.find(v => v.lang.includes('en'));
-    if (enVoice) {
-      speech.voice = enVoice;
-    }
+    const femaleVoice = voices.find(v => 
+      v.lang.includes('en') && 
+      (v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha') || v.name.includes('Google US English') || v.name.includes('Victoria'))
+    ) || voices.find(v => v.lang.includes('en'));
 
-    // เมื่ออ่านจบ 1 รอบ ให้ส่งสัญญาณไปทำคิวถัดไปทันที (ไม่อ่านซ้ำแล้ว)
-    speech.onend = () => {
+    // --- รอบที่ 1 ---
+    const speech1 = new SpeechSynthesisUtterance(text);
+    speech1.lang = 'en-US';
+    speech1.rate = 0.85;
+    if (femaleVoice) speech1.voice = femaleVoice;
+
+    speech1.onend = () => {
+      // เว้นระยะ 1.5 วินาที แล้วประกาศซ้ำ --- รอบที่ 2 ---
+      setTimeout(() => {
+        const speech2 = new SpeechSynthesisUtterance(text);
+        speech2.lang = 'en-US';
+        speech2.rate = 0.85;
+        if (femaleVoice) speech2.voice = femaleVoice;
+
+        speech2.onend = () => {
+          if (callback) callback();
+        };
+
+        speech2.onerror = () => {
+          if (callback) callback();
+        };
+
+        window.speechSynthesis.speak(speech2);
+      }, 1500);
+    };
+
+    speech1.onerror = () => {
       if (callback) callback();
     };
 
-    speech.onerror = () => {
-      if (callback) callback();
-    };
-
-    window.speechSynthesis.speak(speech);
+    window.speechSynthesis.speak(speech1);
   }
+</script>
+</body>
+</html>
