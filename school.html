@@ -172,7 +172,7 @@
     // --- รอบที่ 1 ---
     const speech1 = new SpeechSynthesisUtterance(text);
     speech1.lang = 'en-US';
-    speech1.rate = 0.85;
+    speech1.rate = 0.75;
     if (femaleVoice) speech1.voice = femaleVoice;
 
     speech1.onend = () => {
@@ -180,7 +180,7 @@
       setTimeout(() => {
         const speech2 = new SpeechSynthesisUtterance(text);
         speech2.lang = 'en-US';
-        speech2.rate = 0.85;
+        speech2.rate = 0.75;
         if (femaleVoice) speech2.voice = femaleVoice;
 
         speech2.onend = () => {
