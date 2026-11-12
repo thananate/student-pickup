@@ -158,7 +158,7 @@
 
   function speakEN(nickname, fullname, studentYear, callback) {
     const yearAnnouncement = studentYear ? `from ${studentYear}` : '';
-    const text = `${nickname} ${fullname} ${yearAnnouncement}. Please come to the gate.`;
+    const text = `${nickname}. . ${fullname} ${yearAnnouncement}. Please come to the gate.`;
     
     window.speechSynthesis.cancel();
 
