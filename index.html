@@ -16,6 +16,7 @@
     input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; background-color: white; }
     button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 10px; }
     button:hover { background-color: #1557b0; }
+    button:disabled { background-color: #a0c3ff; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -38,8 +39,6 @@
       <label>Year Group:</label>
       <select id="studentYear">
         <option value="">-- Select Year --</option>
-        <option value="K1">K1</option>
-        <option value="K2">K2</option>
         <option value="Year 1">Year 1</option>
         <option value="Year 2">Year 2</option>
         <option value="Year 3">Year 3</option>
@@ -56,7 +55,7 @@
       </select>
     </div>
 
-    <button id="btnRequest" onclick="sendPickupRequest()">Submit Request</button>
+    <button id="btnRequest" onclick="checkGPSAndSubmit()">Submit Request</button>
     <p id="statusMsg" style="color: #28a745; font-weight: 600; font-size: 15px; margin-top: 15px; text-align: center;"></p>
   </div>
 </div>
@@ -79,10 +78,29 @@
 
   const COOLDOWN_TIME = 10 * 60 * 1000;
 
-  function sendPickupRequest() {
+  // 📍 กำหนดพิกัดโรงเรียนและระยะห่างที่ยอมให้กดได้ตรงนี้
+  const SCHOOL_LAT = 13.756331; // ใส่ Latitude ของโรงเรียน
+  const SCHOOL_LNG = 100.501765; // ใส่ Longitude ของโรงเรียน
+  const MAX_DISTANCE_KM = 0.5; // ระยะห่างสูงสุดที่ยอมให้กดส่งคิว (0.5 km = 500 เมตร)
+
+  // สูตรคำนวณระยะห่างระหว่าง 2 พิกัด (หน่วยเป็นกิโลเมตร)
+  function getDistanceInKm(lat1, lon1, lat2, lon2) {
+    const R = 6371; // รัศมีของโลก (กม.)
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+    return R * c;
+  }
+
+  function checkGPSAndSubmit() {
     const nickname = document.getElementById('nickname').value.trim();
     const fullname = document.getElementById('fullname').value.trim();
     const studentYear = document.getElementById('studentYear').value;
+    const btn = document.getElementById('btnRequest');
     const statusMsg = document.getElementById('statusMsg');
 
     if (!nickname || !fullname || !studentYear) {
@@ -100,18 +118,54 @@
       return;
     }
 
-    pickupRef.push({
-      nickname: nickname,
-      fullname: fullname,
-      studentYear: studentYear,
-      timestamp: now
-    });
+    // ตรวจสอบว่ามือถือรองรับ GPS หรือไม่
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
 
-    localStorage.setItem(studentKey, now.toString());
-    statusMsg.innerText = `Request sent for ${nickname} (${studentYear})! Please wait.`;
-    document.getElementById('nickname').value = '';
-    document.getElementById('fullname').value = '';
-    document.getElementById('studentYear').value = '';
+    btn.disabled = true;
+    statusMsg.style.color = "#1a73e8";
+    statusMsg.innerText = "Checking location...";
+
+    // ขอพิกัด GPS ปัจจุบันจากมือถือ
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+
+        const distance = getDistanceInKm(userLat, userLng, SCHOOL_LAT, SCHOOL_LNG);
+
+        if (distance > MAX_DISTANCE_KM) {
+          btn.disabled = false;
+          statusMsg.innerText = "";
+          alert(`You are too far from the school (${distance.toFixed(2)} km away). You must be within ${MAX_DISTANCE_KM * 1000} meters to submit a request.`);
+          return;
+        }
+
+        // ผ่านเงื่อนไข GPS ส่งข้อมูลเข้า Firebase
+        pickupRef.push({
+          nickname: nickname,
+          fullname: fullname,
+          studentYear: studentYear,
+          timestamp: now
+        });
+
+        localStorage.setItem(studentKey, now.toString());
+        statusMsg.style.color = "#28a745";
+        statusMsg.innerText = `Request sent for ${nickname} (${studentYear})! Please wait.`;
+        document.getElementById('nickname').value = '';
+        document.getElementById('fullname').value = '';
+        document.getElementById('studentYear').value = '';
+        btn.disabled = false;
+      },
+      (error) => {
+        btn.disabled = false;
+        statusMsg.innerText = "";
+        alert("Unable to retrieve your location. Please allow location access in your browser permissions.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   }
 </script>
 </body>
