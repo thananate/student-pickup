@@ -155,33 +155,37 @@
       }, 2000);
     });
   }
-
-  function speakEN(nickname, fullname, studentYear, callback) {
+function speakEN(nickname, fullname, studentYear, callback) {
     const yearAnnouncement = studentYear ? `from ${studentYear}` : '';
-    const text = `${nickname}. . ${fullname} ${yearAnnouncement}. Please come to the gate.`;
+    // เติม , , เพื่อเว้นจังหวะระหว่างชื่อเล่น ชื่อจริง และชั้นเรียน
+    const text = `Attention please. Calling for ${nickname}, , ${fullname}, , ${yearAnnouncement}. Please come to the pickup zone.`;
     
     window.speechSynthesis.cancel();
 
-    // ดึงรายการเสียงและค้นหา "เสียงผู้หญิง" ภาษาอังกฤษ
+    // ดึงรายการเสียงทั้งหมดในระบบ
     const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find(v => 
-      v.lang.includes('en') && 
-      (v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha') || v.name.includes('Google US English') || v.name.includes('Victoria'))
-    ) || voices.find(v => v.lang.includes('en'));
+
+    // 1. ค้นหาเสียงผู้หญิงสำเนียงเอเชียก่อน (เช่น สิงคโปร์ en-SG, อินเดีย en-IN)
+    // 2. ถ้าไม่มี ให้หาเสียงผู้หญิงสำเนียงอังกฤษ (British English: en-GB เช่น Hazel, Susan, Sonia, Victoria)
+    // 3. ถ้าไม่มี ให้ดึงเสียง en-GB ทั่วไป หรือเสียงอังกฤษใดๆ ที่มี
+    const asianOrUKFemaleVoice = voices.find(v => 
+      (v.lang.includes('en-SG') || v.lang.includes('en-IN') || v.lang.includes('en-GB')) &&
+      (v.name.includes('Female') || v.name.includes('Hazel') || v.name.includes('Susan') || v.name.includes('Sonia') || v.name.includes('Google UK English Female'))
+    ) || voices.find(v => v.lang.includes('en-GB')) || voices.find(v => v.lang.includes('en'));
 
     // --- รอบที่ 1 ---
     const speech1 = new SpeechSynthesisUtterance(text);
-    speech1.lang = 'en-US';
-    speech1.rate = 0.50;
-    if (femaleVoice) speech1.voice = femaleVoice;
+    speech1.lang = 'en-GB'; // กำหนดให้ใช้สำเนียง British English
+    speech1.rate = 0.75;    // ความเร็วช้าลงกำลังดี
+    if (asianOrUKFemaleVoice) speech1.voice = asianOrUKFemaleVoice;
 
     speech1.onend = () => {
       // เว้นระยะ 1.5 วินาที แล้วประกาศซ้ำ --- รอบที่ 2 ---
       setTimeout(() => {
         const speech2 = new SpeechSynthesisUtterance(text);
-        speech2.lang = 'en-US';
-        speech2.rate = 0.50;
-        if (femaleVoice) speech2.voice = femaleVoice;
+        speech2.lang = 'en-GB';
+        speech2.rate = 0.75;
+        if (asianOrUKFemaleVoice) speech2.voice = asianOrUKFemaleVoice;
 
         speech2.onend = () => {
           if (callback) callback();
