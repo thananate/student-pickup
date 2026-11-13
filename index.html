@@ -77,15 +77,12 @@
   let currentMatches = [];
   let activeIndex = -1;
 
-  async function loadStudentsFromSheet() {
+  // ฟังก์ชันรับข้อมูลจาก Google Sheets ผ่าน JSONP (ไม่ติดบล็อก CORS แน่นอน)
+  window.handleSheetData = function(json) {
     const loadingMsg = document.getElementById('loadingMsg');
     const searchInput = document.getElementById('searchInput');
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
     try {
-      const response = await fetch(url);
-      const text = await response.text();
-      const json = JSON.parse(text.substring(47).slice(0, -2));
       const rows = json.table.rows;
       const uniqueMap = new Map();
 
@@ -105,13 +102,24 @@
       searchInput.disabled = false;
     } catch (error) {
       loadingMsg.style.color = '#d93025';
-      loadingMsg.innerText = 'Error loading database. Check Google Sheet sharing permission.';
+      loadingMsg.innerText = 'Error parsing student data.';
     }
+  };
+
+  // โหลดข้อมูลด้วย Script Tag เพื่อทะลุการบล็อก CORS
+  function loadStudentsViaJSONP() {
+    const script = document.createElement('script');
+    script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:handleSheetData`;
+    script.onerror = function() {
+      const loadingMsg = document.getElementById('loadingMsg');
+      loadingMsg.style.color = '#d93025';
+      loadingMsg.innerText = 'Cannot connect to Google Sheets. Check internet or sheet sharing.';
+    };
+    document.body.appendChild(script);
   }
 
-  loadStudentsFromSheet();
+  loadStudentsViaJSONP();
 
-  // ไฮไลต์คำที่ตรงกับที่พิมพ์
   function highlightMatch(text, query) {
     const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(${escapedQuery})`, 'gi');
@@ -128,7 +136,17 @@
     document.getElementById('selectedBox').style.display = 'none';
     document.getElementById('btnRequest').disabled = true;
 
-    // เดาคำตั้งแต่ตัวอักษรแรก (1 ตัวขึ้นไป)
     if (query.length < 1) {
       resultsDiv.style.display = 'none';
       currentMatches = [];
+      return;
+    }
+
+    currentMatches = STUDENT_LIST
+      .filter(s => s.name.toLowerCase().includes(lowerQuery))
+      .sort((a, b) => {
+        const aStarts = a.name.toLowerCase().startsWith(lowerQuery);
+        const bStarts = b.name.toLowerCase().startsWith(lowerQuery);
+        if (aStarts && !bStarts) return -1;
+        if (!aStarts && bStarts) return 1;
+        return a.name.localeCompare(b.
