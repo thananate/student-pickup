@@ -43,4 +43,433 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
     .call-label { font-size: 20px; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
-    .student-nickname { font-size: 64px; font-weight: 800; color: #
+    .student-nickname { font-size: 64px; font-weight: 800; color: #facc15; margin: 8px 0; }
+    .student-fullname { font-size: 28px; color: #e2e8f0; margin-bottom: 10px; }
+    .student-year {
+      display: inline-block;
+      background-color: #0284c7;
+      color: white;
+      padding: 8px 24px;
+      border-radius: 30px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    /* จัดวาง 2 คอลัมน์: คิวถัดไป (ซ้าย) และ คิวที่เรียกผ่านไปแล้ว (ขวา) */
+    .lists-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+      text-align: left;
+    }
+    @media (max-width: 768px) {
+      .lists-grid { grid-template-columns: 1fr; }
+    }
+
+    .list-box {
+      background-color: rgba(30, 41, 59, 0.6);
+      border: 1px solid #334155;
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 20px;
+      font-weight: bold;
+      color: #94a3b8;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 8px;
+    }
+    .queue-item {
+      background-color: #1e293b;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 18px;
+    }
+    .history-item {
+      background-color: #1e293b;
+      border-left: 4px solid #22c55e;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 17px;
+    }
+    .recall-btn {
+      background-color: #334155;
+      color: #38bdf8;
+      border: 1px solid #38bdf8;
+      padding: 5px 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-left: 10px;
+    }
+    .recall-btn:hover {
+      background-color: #0284c7;
+      color: white;
+    }
+    .clear-btn {
+      background: none;
+      border: 1px solid #475569;
+      color: #94a3b8;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .clear-btn:hover {
+      background-color: #334155;
+      color: white;
+    }
+
+    /* แถบตัวอักษรวิ่งด้านล่างจอ */
+    .ticker-wrap {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 95px;
+      background-color: #0284c7;
+      border-top: 4px solid #38bdf8;
+      display: none;
+      align-items: center;
+      overflow: hidden;
+      z-index: 500;
+      pointer-events: none;
+      box-shadow: 0 -4px 15px rgba(0,0,0,0.4);
+    }
+    .ticker-label {
+      background-color: #facc15;
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 26px;
+      padding: 0 28px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      z-index: 2;
+      box-shadow: 4px 0 10px rgba(0,0,0,0.25);
+    }
+    .ticker-move-area {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+    }
+    .ticker-content {
+      display: inline-block;
+      padding-left: 100%;
+      font-size: 36px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+    .ticker-item { margin-right: 60px; }
+    .ticker-time { color: #fde047; font-size: 28px; margin-left: 8px; }
+
+    @keyframes tickerScroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>STUDENT PICKUP QUEUE</h1>
+  <button type="button" id="startAudioBtn" onclick="enableAudio()">🔊 Click to Enable Voice Announcement</button>
+
+  <div class="current-call">
+    <div class="call-label">Now Calling</div>
+    <div id="currentNickname" class="student-nickname">-</div>
+    <div id="currentFullname" class="student-fullname">Waiting for pickup requests...</div>
+    <div id="currentYear" class="student-year" style="display: none;"></div>
+  </div>
+
+  <!-- แบ่ง 2 ฝั่ง: คิวถัดไป และ ลิสต์ที่เรียกผ่านไปแล้ว -->
+  <div class="lists-grid">
+    <!-- ฝั่งซ้าย: คิวที่รอเรียก -->
+    <div class="list-box">
+      <div class="list-header">
+        <span>⏳ Upcoming Queue (<span id="queueCount">0</span>)</span>
+      </div>
+      <div id="queueList">
+        <p style="color: #64748b; text-align: center; font-size: 16px;">No students in queue</p>
+      </div>
+    </div>
+
+    <!-- ฝั่งขวา: ลิสต์คิวที่เรียกผ่านไปแล้ว -->
+    <div class="list-box">
+      <div class="list-header">
+        <span>✅ Called History (<span id="historyCount">0</span>)</span>
+        <button type="button" class="clear-btn" onclick="clearHistory()">Clear</button>
+      </div>
+      <div id="historyList">
+        <p style="color: #64748b; text-align: center; font-size: 16px;">No students called yet</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- แถบตัวอักษรวิ่งแสดงรายชื่อที่เรียกผ่านไปแล้ว -->
+  <div id="tickerWrap" class="ticker-wrap">
+    <div class="ticker-label">RECENTLY CALLED</div>
+    <div class="ticker-move-area">
+      <div id="tickerContent" class="ticker-content"></div>
+    </div>
+  </div>
+
+<script>
+  const firebaseConfig = {
+    apiKey: "AIzaSyDg0_AiLLITFAdqgN0AZk-l0vGc--HlAzU",
+    authDomain: "ips-student-pickup-system.firebaseapp.com",
+    databaseURL: "https://ips-student-pickup-system-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ips-student-pickup-system",
+    storageBucket: "ips-student-pickup-system.firebasestorage.app",
+    messagingSenderId: "732917618676",
+    appId: "1:732917618676:web:9b37c6cb43casf15a6cba1",
+    measurementId: "G-Y3KESCV89G"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  const pickupRef = database.ref('pickup_queue');
+
+  let audioEnabled = false;
+  let isSpeaking = false;
+  let queueItems = [];
+  let calledHistory = [];
+  const MAX_HISTORY_ITEMS = 20;
+
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
+  }
+
+  function enableAudio() {
+    audioEnabled = true;
+    const btn = document.getElementById('startAudioBtn');
+    btn.innerText = "✅ Voice Announcement Active";
+    btn.style.backgroundColor = "#0284c7";
+    
+    try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const testUtterance = new SpeechSynthesisUtterance("Voice ready");
+        testUtterance.lang = 'en-GB';
+        testUtterance.volume = 0.5;
+        window.speechSynthesis.speak(testUtterance);
+      }
+    } catch (e) {
+      console.error("Audio init error:", e);
+    }
+
+    processNextInQueue();
+  }
+
+  pickupRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    queueItems = [];
+    if (data) {
+      Object.keys(data).forEach(key => {
+        queueItems.push({ id: key, ...data[key] });
+      });
+      queueItems.sort((a, b) => a.timestamp - b.timestamp);
+    }
+    renderQueue();
+    processNextInQueue();
+  });
+
+  function renderQueue() {
+    const queueListDiv = document.getElementById('queueList');
+    const queueCountSpan = document.getElementById('queueCount');
+    
+    const upcoming = isSpeaking ? queueItems.slice(1) : queueItems;
+    queueCountSpan.innerText = upcoming.length;
+    queueListDiv.innerHTML = '';
+
+    if (upcoming.length === 0) {
+      queueListDiv.innerHTML = '<p style="color: #64748b; text-align: center; font-size: 16px;">No students in queue</p>';
+      return;
+    }
+
+    upcoming.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'queue-item';
+      div.innerHTML = `
+        <span><strong>#${index + 1}</strong> ${item.nickname} <span style="color:#94a3b8; font-size:15px;">(${item.fullname})</span></span>
+        <span style="background: #334155; padding: 4px 12px; border-radius: 15px; font-size: 15px;">${item.studentYear}</span>
+      `;
+      queueListDiv.appendChild(div);
+    });
+  }
+
+  // เพิ่มรายชื่อลงในลิสต์ประวัติ + แถบตัววิ่ง
+  function addToCalledHistory(student) {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+    calledHistory.unshift({
+      nickname: student.nickname,
+      fullname: student.fullname,
+      studentYear: student.studentYear,
+      time: timeStr
+    });
+
+    if (calledHistory.length > MAX_HISTORY_ITEMS) {
+      calledHistory.pop();
+    }
+
+    renderHistoryList();
+    renderTicker();
+  }
+
+  // แสดงลิสต์คิวที่เรียกผ่านไปแล้วในกล่องด้านขวา
+  function renderHistoryList() {
+    const historyDiv = document.getElementById('historyList');
+    const historyCount = document.getElementById('historyCount');
+    historyCount.innerText = calledHistory.length;
+
+    if (calledHistory.length === 0) {
+      historyDiv.innerHTML = '<p style="color: #64748b; text-align: center; font-size: 16px;">No students called yet</p>';
+      return;
+    }
+
+    historyDiv.innerHTML = '';
+    calledHistory.forEach((item, index) => {
+      const div = document.createElement('div');
+      div.className = 'history-item';
+      div.innerHTML = `
+        <div>
+          <strong>${item.nickname}</strong> <span style="color:#cbd5e1; font-size:15px;">(${item.fullname})</span>
+          <div style="font-size: 14px; color: #94a3b8; margin-top: 3px;">
+            ${item.studentYear} • Called at <span style="color: #facc15;">${item.time}</span>
+          </div>
+        </div>
+        <button type="button" class="recall-btn" onclick="recallStudent(${index})" title="Call again">🔊 Recall</button>
+      `;
+      historyDiv.appendChild(div);
+    });
+  }
+
+  // ฟังก์ชันกดเรียกซ้ำ (ส่งชื่อกลับเข้าคิวประกาศอีกครั้ง)
+  function recallStudent(index) {
+    const student = calledHistory[index];
+    if (!student) return;
+
+    pickupRef.push({
+      nickname: student.nickname,
+      fullname: student.fullname,
+      studentYear: student.studentYear,
+      timestamp: Date.now()
+    });
+  }
+
+  function clearHistory() {
+    calledHistory = [];
+    renderHistoryList();
+    renderTicker();
+  }
+
+  function renderTicker() {
+    const tickerWrap = document.getElementById('tickerWrap');
+    const tickerContent = document.getElementById('tickerContent');
+
+    if (calledHistory.length === 0) {
+      tickerWrap.style.display = 'none';
+      return;
+    }
+
+    tickerWrap.style.display = 'flex';
+    tickerContent.innerHTML = calledHistory.map(item => 
+      `<span class="ticker-item">• <strong>${item.nickname}</strong> (${item.fullname} - ${item.studentYear}) <span class="ticker-time">[${item.time}]</span></span>`
+    ).join('');
+
+    const duration = Math.max(18, calledHistory.length * 6);
+
+    tickerContent.style.animation = 'none';
+    tickerContent.offsetHeight; 
+    tickerContent.style.animation = `tickerScroll ${duration}s linear 2 forwards`;
+
+    tickerContent.onanimationend = () => {
+      tickerWrap.style.display = 'none';
+    };
+  }
+
+  function speakText(text, rate = 0.85) {
+    return new Promise((resolve) => {
+      if (!('speechSynthesis' in window)) {
+        resolve();
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      const ukFemale = voices.find(v => v.lang === 'en-GB' && v.name.includes('Female')) 
+                    || voices.find(v => v.lang === 'en-GB');
+      if (ukFemale) utterance.voice = ukFemale;
+      
+      utterance.lang = 'en-GB';
+      utterance.rate = rate;
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+
+  function pause(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function processNextInQueue() {
+    if (!audioEnabled || isSpeaking || queueItems.length === 0) return;
+
+    isSpeaking = true;
+    const current = queueItems[0];
+    renderQueue();
+
+    document.getElementById('currentNickname').innerText = current.nickname;
+    document.getElementById('currentFullname').innerText = current.fullname;
+    const yearEl = document.getElementById('currentYear');
+    yearEl.innerText = current.studentYear;
+    yearEl.style.display = 'inline-block';
+
+    await speakText(current.nickname, 0.85);
+    await pause(500);
+    await speakText(current.fullname, 0.85);
+    await pause(400);
+    await speakText(current.studentYear, 0.85);
+    await pause(1200);
+
+    await speakText(`${current.nickname}, ${current.studentYear}`, 0.85);
+    await pause(1500);
+
+    addToCalledHistory(current);
+    await pickupRef.child(current.id).remove();
+
+    isSpeaking = false;
+
+    if (queueItems.length <= 1) {
+      document.getElementById('currentNickname').innerText = '-';
+      document.getElementById('currentFullname').innerText = 'Waiting for pickup requests...';
+      yearEl.style.display = 'none';
+    } else {
+      processNextInQueue();
+    }
+  }
+</script>
+</body>
+</html>
