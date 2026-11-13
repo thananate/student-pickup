@@ -11,10 +11,15 @@
     .container { max-width: 500px; margin: 0 auto; }
     .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
     h2 { color: #1a73e8; margin-top: 0; text-align: center; }
-    .input-group { margin-bottom: 15px; text-align: left; }
+    .input-group { margin-bottom: 15px; text-align: left; position: relative; }
     label { font-weight: 600; display: block; margin-bottom: 5px; color: #444; }
-    input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; background-color: white; }
-    button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+    input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+    .search-results { position: absolute; width: 100%; max-height: 220px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; margin-top: 4px; display: none; }
+    .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+    .result-item:hover { background-color: #e8f0fe; }
+    .year-badge { background: #1a73e8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .selected-box { background: #e6f4ea; border: 1px solid #34a853; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: none; }
+    button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     button:hover { background-color: #1557b0; }
     button:disabled { background-color: #a0c3ff; cursor: not-allowed; }
   </style>
@@ -24,40 +29,20 @@
 <div class="container">
   <div class="card">
     <h2>Student Pickup Request</h2>
+    <p id="loadingMsg" style="text-align: center; color: #666; font-size: 14px;">Loading student database...</p>
     
     <div class="input-group">
-      <label>Nickname:</label>
-      <input type="text" id="nickname" placeholder="e.g. Alex">
+      <label>Search Student Name / Nickname:</label>
+      <input type="text" id="searchInput" placeholder="Type name or nickname..." oninput="filterStudents()" autocomplete="off" disabled>
+      <div id="searchResults" class="search-results"></div>
     </div>
 
-    <div class="input-group">
-      <label>Full Name:</label>
-      <input type="text" id="fullname" placeholder="e.g. Alex Smith">
+    <div id="selectedBox" class="selected-box">
+      <div style="font-size: 13px; color: #28a745; font-weight: bold;">Selected Student:</div>
+      <div id="selectedText" style="font-size: 16px; font-weight: 600; margin-top: 4px;"></div>
     </div>
 
-    <div class="input-group">
-      <label>Year Group:</label>
-      <select id="studentYear">
-        <option value="">-- Select Year --</option>
-        <option value="K1">K1</option> 
-        <option value="K2">K2</option>
-        <option value="Year 1">Year 1</option>
-        <option value="Year 2">Year 2</option>
-        <option value="Year 3">Year 3</option>
-        <option value="Year 4">Year 4</option>
-        <option value="Year 5">Year 5</option>
-        <option value="Year 6">Year 6</option>
-        <option value="Year 7">Year 7</option>
-        <option value="Year 8">Year 8</option>
-        <option value="Year 9">Year 9</option>
-        <option value="Year 10">Year 10</option>
-        <option value="Year 11">Year 11</option>
-        <option value="Year 12">Year 12</option>
-        <option value="Year 13">Year 13</option>
-      </select>
-    </div>
-
-    <button id="btnRequest" onclick="checkGPSAndSubmit()">Submit Request</button>
+    <button id="btnRequest" onclick="checkGPSAndSubmit()" disabled>Submit Request</button>
     <p id="statusMsg" style="color: #28a745; font-weight: 600; font-size: 15px; margin-top: 15px; text-align: center;"></p>
   </div>
 </div>
@@ -78,39 +63,114 @@
   const database = firebase.database();
   const pickupRef = database.ref('pickup_queue');
 
+  // 🔗 นำลิงก์ CSV จาก Google Sheets (Publish to web) มาวางตรงนี้ครับ
+  const GOOGLE_SHEET_CSV_URL = "วางลิงก์_CSV_จาก_GOOGLE_SHEETS_ตรงนี้";
+
   const COOLDOWN_TIME = 10 * 60 * 1000;
+  const SCHOOL_LAT = 13.7221873;
+  const SCHOOL_LNG = 100.5012773;
+  const MAX_DISTANCE_KM = 0.5;
 
-  // 📍 กำหนดพิกัดโรงเรียนและระยะห่างที่ยอมให้กดได้ตรงนี้
-  const SCHOOL_LAT = 13.7221873; // ใส่ Latitude ของโรงเรียน
-  const SCHOOL_LNG = 100.5012773; // ใส่ Longitude ของโรงเรียน
-  const MAX_DISTANCE_KM = 0.5; // ระยะห่างสูงสุดที่ยอมให้กดส่งคิว (0.5 km = 500 เมตร)
+  let STUDENT_LIST = [];
+  let selectedStudent = null;
 
-  // สูตรคำนวณระยะห่างระหว่าง 2 พิกัด (หน่วยเป็นกิโลเมตร)
-  function getDistanceInKm(lat1, lon1, lat2, lon2) {
-    const R = 6371; // รัศมีของโลก (กม.)
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2); 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-    return R * c;
+  // ดึงข้อมูลรายชื่อจาก Google Sheets ทันทีที่เปิดหน้าเว็บ
+  async function loadStudentsFromSheet() {
+    const loadingMsg = document.getElementById('loadingMsg');
+    const searchInput = document.getElementById('searchInput');
+
+    try {
+      const response = await fetch(GOOGLE_SHEET_CSV_URL);
+      const csvText = await response.text();
+      
+      // แปลงข้อมูล CSV เป็นรายการนักเรียน (ข้ามบรรทัดแรกที่เป็นหัวตาราง)
+      const rows = csvText.split('\n').slice(1);
+      const uniqueMap = new Map();
+
+      rows.forEach(row => {
+        // แยกคอลัมน์ด้วยเครื่องหมายจุลภาค (รองรับกรณีมีเครื่องหมายคำพูดครอบ)
+        const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        if (cols.length >= 2) {
+          const name = cols[0].replace(/^"|"$/g, '').trim();
+          const rawYear = cols[1].replace(/^"|"$/g, '').trim();
+          if (name && rawYear) {
+            const year = rawYear.toLowerCase().startsWith('year') ? rawYear : `Year ${rawYear}`;
+            uniqueMap.set(name.toLowerCase(), { name, year }); // กรองชื่อซ้ำให้อัตโนมัติ
+          }
+        }
+      });
+
+      STUDENT_LIST = Array.from(uniqueMap.values());
+      loadingMsg.style.display = 'none';
+      searchInput.disabled = false;
+    } catch (error) {
+      loadingMsg.style.color = '#d93025';
+      loadingMsg.innerText = 'Error loading student database. Please refresh.';
+    }
   }
 
-  function checkGPSAndSubmit() {
-    const nickname = document.getElementById('nickname').value.trim();
-    const fullname = document.getElementById('fullname').value.trim();
-    const studentYear = document.getElementById('studentYear').value;
-    const btn = document.getElementById('btnRequest');
-    const statusMsg = document.getElementById('statusMsg');
+  // เรียกใช้งานการโหลดรายชื่อทันที
+  loadStudentsFromSheet();
 
-    if (!nickname || !fullname || !studentYear) {
-      alert("Please fill in Nickname, Full Name, and select Year Group.");
+  function filterStudents() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const resultsDiv = document.getElementById('searchResults');
+    
+    selectedStudent = null;
+    document.getElementById('selectedBox').style.display = 'none';
+    document.getElementById('btnRequest').disabled = true;
+
+    if (query.length < 2) {
+      resultsDiv.style.display = 'none';
       return;
     }
 
-    const studentKey = `cooldown_${nickname.toLowerCase()}_${fullname.toLowerCase()}`;
+    const matches = STUDENT_LIST.filter(s => s.name.toLowerCase().includes(query));
+    resultsDiv.innerHTML = '';
+
+    if (matches.length === 0) {
+      resultsDiv.innerHTML = '<div style="padding: 12px; color: #888; text-align: center;">No student found</div>';
+    } else {
+      matches.forEach(student => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <span>${student.name}</span>
+          <span class="year-badge">${student.year}</span>
+        `;
+        div.onclick = () => selectStudent(student);
+        resultsDiv.appendChild(div);
+      });
+    }
+
+    resultsDiv.style.display = 'block';
+  }
+
+  function selectStudent(student) {
+    selectedStudent = student;
+    document.getElementById('searchInput').value = student.name;
+    document.getElementById('searchResults').style.display = 'none';
+    
+    document.getElementById('selectedText').innerText = `${student.name} (${student.year})`;
+    document.getElementById('selectedBox').style.display = 'block';
+    document.getElementById('btnRequest').disabled = false;
+  }
+
+  function getDistanceInKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function checkGPSAndSubmit() {
+    if (!selectedStudent) return;
+
+    const btn = document.getElementById('btnRequest');
+    const statusMsg = document.getElementById('statusMsg');
+    const studentKey = `cooldown_${selectedStudent.name.toLowerCase()}`;
     const lastCalled = localStorage.getItem(studentKey);
     const now = Date.now();
 
@@ -120,7 +180,6 @@
       return;
     }
 
-    // ตรวจสอบว่ามือถือรองรับ GPS หรือไม่
     if (!navigator.geolocation) {
       alert("Geolocation is not supported by your browser.");
       return;
@@ -130,41 +189,40 @@
     statusMsg.style.color = "#1a73e8";
     statusMsg.innerText = "Checking location...";
 
-    // ขอพิกัด GPS ปัจจุบันจากมือถือ
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const userLat = position.coords.latitude;
-        const userLng = position.coords.longitude;
-
-        const distance = getDistanceInKm(userLat, userLng, SCHOOL_LAT, SCHOOL_LNG);
+        const distance = getDistanceInKm(position.coords.latitude, position.coords.longitude, SCHOOL_LAT, SCHOOL_LNG);
 
         if (distance > MAX_DISTANCE_KM) {
           btn.disabled = false;
           statusMsg.innerText = "";
-          alert(`You are too far from the school (${distance.toFixed(2)} km away). You must be within ${MAX_DISTANCE_KM * 1000} meters to submit a request.`);
+          alert(`You are too far from the school (${distance.toFixed(2)} km away). You must be within ${MAX_DISTANCE_KM * 1000} meters.`);
           return;
         }
 
-        // ผ่านเงื่อนไข GPS ส่งข้อมูลเข้า Firebase
+        const nicknameMatch = selectedStudent.name.match(/\(([^)]+)\)/);
+        const nickname = nicknameMatch ? nicknameMatch[1] : selectedStudent.name.split(' ')[0];
+        const cleanFullname = selectedStudent.name.replace(/\([^)]+\)\s*/g, '');
+
         pickupRef.push({
           nickname: nickname,
-          fullname: fullname,
-          studentYear: studentYear,
+          fullname: cleanFullname,
+          studentYear: selectedStudent.year,
           timestamp: now
         });
 
         localStorage.setItem(studentKey, now.toString());
         statusMsg.style.color = "#28a745";
-        statusMsg.innerText = `Request sent for ${nickname} (${studentYear})! Please wait.`;
-        document.getElementById('nickname').value = '';
-        document.getElementById('fullname').value = '';
-        document.getElementById('studentYear').value = '';
-        btn.disabled = false;
+        statusMsg.innerText = `Request sent for ${selectedStudent.name} (${selectedStudent.year})!`;
+        
+        selectedStudent = null;
+        document.getElementById('searchInput').value = '';
+        document.getElementById('selectedBox').style.display = 'none';
       },
-      (error) => {
+      () => {
         btn.disabled = false;
         statusMsg.innerText = "";
-        alert("Unable to retrieve your location. Please allow location access in your browser permissions.");
+        alert("Unable to retrieve your location. Please allow location access.");
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
