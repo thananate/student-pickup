@@ -29,7 +29,7 @@
 <div class="container">
   <div class="card">
     <h2>Student Pickup Request</h2>
-    <p id="loadingMsg" style="text-align: center; color: #666; font-size: 14px;">Loading student database...</p>
+    <p id="loadingMsg" style="text-align: center; color: #1a73e8; font-size: 14px;">Loading student database...</p>
     
     <div class="input-group">
       <label>Search Student Name / Nickname:</label>
@@ -63,8 +63,8 @@
   const database = firebase.database();
   const pickupRef = database.ref('pickup_queue');
 
-  // ลิงก์ CSV จาก Google Sheets ของคุณ
-  const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOZC2-F638vRTEeXeVs2igfBzHROKg0X8NbFYbyFppxZBdRLNtGW4DIqyzMbCDe2d9XzmP2E63ghDC/pub?output=csv";
+  // รหัส Sheet ID จาก Google Sheets ของคุณ
+  const SHEET_ID = "1LXna7EyJxCEjpFdfTFdw9uFuheXM_2_opPUX_QaigdY";
 
   const COOLDOWN_TIME = 10 * 60 * 1000;
   const SCHOOL_LAT = 13.7221873;
@@ -77,20 +77,20 @@
   async function loadStudentsFromSheet() {
     const loadingMsg = document.getElementById('loadingMsg');
     const searchInput = document.getElementById('searchInput');
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
     try {
-      const response = await fetch(GOOGLE_SHEET_CSV_URL);
-      const csvText = await response.text();
-      
-      const rows = csvText.split('\n').slice(1);
+      const response = await fetch(url);
+      const text = await response.text();
+      const json = JSON.parse(text.substring(47).slice(0, -2));
+      const rows = json.table.rows;
       const uniqueMap = new Map();
 
       rows.forEach(row => {
-        const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
-        if (cols.length >= 2) {
-          const name = cols[0].replace(/^"|"$/g, '').trim();
-          const rawYear = cols[1].replace(/^"|"$/g, '').trim();
-          if (name && rawYear) {
+        if (row.c && row.c[0] && row.c[1]) {
+          const name = String(row.c[0].v || '').trim();
+          const rawYear = String(row.c[1].v || '').trim();
+          if (name && rawYear && name.toLowerCase() !== 'student full name') {
             const year = rawYear.toLowerCase().startsWith('year') ? rawYear : `Year ${rawYear}`;
             uniqueMap.set(name.toLowerCase(), { name, year });
           }
@@ -102,7 +102,7 @@
       searchInput.disabled = false;
     } catch (error) {
       loadingMsg.style.color = '#d93025';
-      loadingMsg.innerText = 'Error loading student database. Please refresh.';
+      loadingMsg.innerText = 'Error loading database. Check Google Sheet sharing permission.';
     }
   }
 
