@@ -11,18 +11,20 @@
     .container { max-width: 500px; margin: 0 auto; }
     .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
     h2 { color: #1a73e8; margin-top: 0; text-align: center; }
+    h3 { color: #333; margin-top: 0; font-size: 18px; }
     .input-group { margin-bottom: 15px; text-align: left; }
-    label { font-weight: 600; display: block; margin-bottom: 5px; color: #444; }
-    input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-    input:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15); }
+    label { font-weight: 600; display: block; margin-bottom: 5px; color: #444; font-size: 14px; }
+    input, select { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; background: white; }
+    input:focus, select:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15); }
     button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; }
     button:hover { background-color: #1557b0; }
     button:disabled { background-color: #a0c3ff; cursor: not-allowed; }
+    .link-btn { background: none; color: #1a73e8; font-size: 14px; font-weight: 600; text-decoration: underline; padding: 8px; margin-top: 10px; }
+    .link-btn:hover { background: none; color: #0d47a1; }
     
-    /* สไตล์ส่วนรายชื่อลูกหลัง Login */
-    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-    .logout-btn { width: auto; background-color: #f1f3f4; color: #555; padding: 6px 12px; font-size: 13px; margin: 0; }
-    .logout-btn:hover { background-color: #e2e6ea; }
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; gap: 6px; }
+    .small-btn { width: auto; background-color: #f1f3f4; color: #555; padding: 6px 10px; font-size: 12px; margin: 0; }
+    .small-btn:hover { background-color: #e2e6ea; }
     .student-card { border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 12px; background: #fafafa; display: flex; justify-content: space-between; align-items: center; }
     .student-info { text-align: left; }
     .student-name { font-weight: 700; font-size: 16px; color: #222; }
@@ -43,21 +45,52 @@
     <div id="loginSection" style="display: none;">
       <div class="input-group">
         <label>Parent Phone Number:</label>
-        <input type="tel" id="phoneInput" placeholder="e.g. 0812345678" autocomplete="tel">
+        <input type="tel" id="phoneInput" placeholder="e.g. 0892055927" autocomplete="tel">
       </div>
       <div class="input-group">
         <label>Password:</label>
         <input type="password" id="passwordInput" placeholder="Enter your password" onkeydown="if(event.key==='Enter') handleLogin()">
       </div>
       <button onclick="handleLogin()">Login</button>
+      <button type="button" class="link-btn" onclick="showResetSection()">Forgot / Reset Password?</button>
       <p id="loginError" style="color: #d93025; font-size: 14px; text-align: center; margin-top: 10px;"></p>
     </div>
 
-    <!-- ส่วนที่ 2: หน้าจอรายชื่อลูกหลัง Login สำเร็จ -->
+    <!-- ส่วนที่ 2: หน้าจอ Reset Password -->
+    <div id="resetSection" style="display: none;">
+      <h3>Reset Password</h3>
+      <p style="font-size: 13px; color: #666; margin-bottom: 15px;">Verify your phone number and your child's Year group to set a new password.</p>
+      
+      <div class="input-group">
+        <label>Registered Phone Number:</label>
+        <input type="tel" id="resetPhoneInput" placeholder="e.g. 0892055927">
+      </div>
+      <div class="input-group">
+        <label>Verify Child's Year (e.g. 13, 12, 11):</label>
+        <input type="text" id="resetYearInput" placeholder="Enter Year number (e.g. 13)">
+      </div>
+      <div class="input-group">
+        <label>New Password (at least 4 characters):</label>
+        <input type="password" id="newPasswordInput" placeholder="Enter new password">
+      </div>
+      <div class="input-group">
+        <label>Confirm New Password:</label>
+        <input type="password" id="confirmPasswordInput" placeholder="Re-enter new password">
+      </div>
+
+      <button onclick="handleResetPassword()">Save New Password</button>
+      <button type="button" class="link-btn" onclick="backToLogin()">Back to Login</button>
+      <p id="resetMsg" style="font-size: 14px; text-align: center; margin-top: 10px;"></p>
+    </div>
+
+    <!-- ส่วนที่ 3: หน้าจอรายชื่อลูกหลัง Login สำเร็จ -->
     <div id="dashboardSection" style="display: none;">
       <div class="header-bar">
-        <span id="welcomePhone" style="font-size: 14px; color: #555; font-weight: 600;"></span>
-        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+        <span id="welcomePhone" style="font-size: 13px; color: #555; font-weight: 600;"></span>
+        <div>
+          <button class="small-btn" onclick="showResetFromDashboard()">Change Password</button>
+          <button class="small-btn" onclick="handleLogout()">Logout</button>
+        </div>
       </div>
       
       <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Select your child to request pickup:</p>
@@ -83,6 +116,7 @@
   firebase.initializeApp(firebaseConfig);
   const database = firebase.database();
   const pickupRef = database.ref('pickup_queue');
+  const customPassRef = database.ref('parent_passwords');
 
   const SHEET_ID = "1LXna7EyJxCEjpFdfTFdw9uFuheXM_2_opPUX_QaigdY";
 
@@ -92,11 +126,16 @@
   const MAX_DISTANCE_KM = 0.5;
 
   let ALL_RECORDS = [];
+  let CUSTOM_PASSWORDS = {}; // เก็บรหัสผ่านใหม่ที่ผู้ปกครองอัปเดตใน Firebase
 
-  // ทำความสะอาดเบอร์โทร (ตัดขีดและช่องว่างออก เพื่อให้เทียบง่าย)
   function normalizePhone(phone) {
     return String(phone || '').replace(/[^0-9]/g, '');
   }
+
+  // โหลดรหัสผ่านที่ผู้ปกครองเปลี่ยนเองจาก Firebase
+  customPassRef.on('value', (snapshot) => {
+    CUSTOM_PASSWORDS = snapshot.val() || {};
+  });
 
   window.handleSheetData = function(json) {
     const loadingMsg = document.getElementById('loadingMsg');
@@ -106,21 +145,26 @@
       ALL_RECORDS = [];
 
       rows.forEach(row => {
-        if (row.c && row.c[0] && row.c[1] && row.c[2] && row.c[3]) {
+        if (row.c && row.c[0] && row.c[1] && row.c[2]) {
           const name = String(row.c[0].v || '').trim();
           const rawYear = String(row.c[1].v || '').trim();
           const phone = normalizePhone(row.c[2].v);
-          const password = String(row.c[3].v || '').trim();
+          const defaultPassword = (row.c[3] && row.c[3].v !== null) ? String(row.c[3].v).trim() : '';
 
-          if (name && rawYear && phone && password && name.toLowerCase() !== 'student full name') {
+          if (name && rawYear && phone && name.toLowerCase() !== 'student full name') {
+            const yearNum = rawYear.replace(/[^0-9]/g, '');
             const year = rawYear.toLowerCase().startsWith('year') ? rawYear : `Year ${rawYear}`;
-            ALL_RECORDS.push({ name, year, phone, password });
+            ALL_RECORDS.push({ name, year, yearNum, phone, defaultPassword });
           }
         }
       });
 
-      loadingMsg.style.display = 'none';
-      checkSavedSession();
+      // รอให้ Firebase โหลดรหัสผ่านที่อัปเดตเสร็จก่อนเช็ก Session
+      customPassRef.once('value', (snap) => {
+        CUSTOM_PASSWORDS = snap.val() || {};
+        loadingMsg.style.display = 'none';
+        checkSavedSession();
+      });
     } catch (error) {
       loadingMsg.style.color = '#d93025';
       loadingMsg.innerText = 'Error loading database.';
@@ -140,7 +184,14 @@
 
   loadStudentsViaJSONP();
 
-  // ตรวจสอบว่าเคยล็อกอินค้างไว้ในเครื่องนี้หรือไม่
+  // ตรวจสอบรหัสผ่านที่ใช้งานจริงของเบอร์นั้น (เช็ก Firebase ก่อน ถ้าไม่มีค่อยใช้รหัสใน Google Sheets)
+  function getActivePassword(phone, defaultSheetPass) {
+    if (CUSTOM_PASSWORDS[phone] && CUSTOM_PASSWORDS[phone].password) {
+      return CUSTOM_PASSWORDS[phone].password;
+    }
+    return defaultSheetPass;
+  }
+
   function checkSavedSession() {
     const savedPhone = localStorage.getItem('pickup_auth_phone');
     const savedPass = localStorage.getItem('pickup_auth_pass');
@@ -160,8 +211,11 @@
     const uniqueChildren = new Map();
 
     ALL_RECORDS.forEach(record => {
-      if (record.phone === cleanPhone && record.password === password) {
-        uniqueChildren.set(record.name.toLowerCase(), { name: record.name, year: record.year });
+      if (record.phone === cleanPhone) {
+        const activePass = getActivePassword(cleanPhone, record.defaultPassword);
+        if (activePass && activePass === password) {
+          uniqueChildren.set(record.name.toLowerCase(), { name: record.name, year: record.year });
+        }
       }
     });
 
@@ -185,12 +239,91 @@
       return;
     }
 
-    // บันทึกการล็อกอินไว้ในเครื่อง
     localStorage.setItem('pickup_auth_phone', normalizePhone(phone));
     localStorage.setItem('pickup_auth_pass', password);
     errorMsg.innerText = '';
 
     showDashboard(normalizePhone(phone), matchedChildren);
+  }
+
+  // เปิดหน้า Reset Password
+  function showResetSection() {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashboardSection').style.display = 'none';
+    document.getElementById('resetSection').style.display = 'block';
+    document.getElementById('resetMsg').innerText = '';
+    document.getElementById('resetPhoneInput').value = document.getElementById('phoneInput').value;
+  }
+
+  function showResetFromDashboard() {
+    const savedPhone = localStorage.getItem('pickup_auth_phone') || '';
+    showResetSection();
+    document.getElementById('resetPhoneInput').value = savedPhone;
+  }
+
+  function backToLogin() {
+    document.getElementById('resetSection').style.display = 'none';
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('loginError').innerText = '';
+  }
+
+  // ประมวลผลการตั้งรหัสผ่านใหม่
+  function handleResetPassword() {
+    const phone = normalizePhone(document.getElementById('resetPhoneInput').value);
+    const verifyYear = document.getElementById('resetYearInput').value.replace(/[^0-9]/g, '');
+    const newPass = document.getElementById('newPasswordInput').value.trim();
+    const confirmPass = document.getElementById('confirmPasswordInput').value.trim();
+    const resetMsg = document.getElementById('resetMsg');
+
+    if (!phone || !verifyYear || !newPass || !confirmPass) {
+      resetMsg.style.color = '#d93025';
+      resetMsg.innerText = 'Please fill in all fields.';
+      return;
+    }
+
+    if (newPass.length < 4) {
+      resetMsg.style.color = '#d93025';
+      resetMsg.innerText = 'New password must be at least 4 characters.';
+      return;
+    }
+
+    if (newPass !== confirmPass) {
+      resetMsg.style.color = '#d93025';
+      resetMsg.innerText = 'Passwords do not match.';
+      return;
+    }
+
+    // ตรวจสอบว่าเบอร์โทร + ปีการศึกษาของลูก ตรงกับใน Google Sheets หรือไม่
+    const isVerified = ALL_RECORDS.some(r => r.phone === phone && r.yearNum === verifyYear);
+
+    if (!isVerified) {
+      resetMsg.style.color = '#d93025';
+      resetMsg.innerText = 'Phone number or child\'s Year does not match our records.';
+      return;
+    }
+
+    // บันทึกรหัสผ่านใหม่ลง Firebase
+    customPassRef.child(phone).set({
+      password: newPass,
+      updatedAt: Date.now()
+    }).then(() => {
+      resetMsg.style.color = '#28a745';
+      resetMsg.innerText = 'Password updated successfully! Redirecting to login...';
+      
+      // ล้างค่าช่องกรอกและอัปเดต Session
+      document.getElementById('newPasswordInput').value = '';
+      document.getElementById('confirmPasswordInput').value = '';
+      document.getElementById('phoneInput').value = phone;
+      document.getElementById('passwordInput').value = '';
+      localStorage.removeItem('pickup_auth_pass');
+
+      setTimeout(() => {
+        backToLogin();
+      }, 1500);
+    }).catch(() => {
+      resetMsg.style.color = '#d93025';
+      resetMsg.innerText = 'Failed to save new password. Please try again.';
+    });
   }
 
   function handleLogout() {
@@ -205,6 +338,7 @@
 
   function showDashboard(phone, children) {
     document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('resetSection').style.display = 'none';
     document.getElementById('dashboardSection').style.display = 'block';
     document.getElementById('welcomePhone').innerText = `Parent: ${phone}`;
 
