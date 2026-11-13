@@ -149,4 +149,149 @@
         const bStarts = b.name.toLowerCase().startsWith(lowerQuery);
         if (aStarts && !bStarts) return -1;
         if (!aStarts && bStarts) return 1;
-        return a.name.localeCompare(b.
+        return a.name.localeCompare(b.name);
+      });
+
+    resultsDiv.innerHTML = '';
+
+    if (currentMatches.length === 0) {
+      resultsDiv.innerHTML = '<div style="padding: 12px; color: #888; text-align: center;">No student found</div>';
+    } else {
+      currentMatches.forEach((student) => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <span>${highlightMatch(student.name, query)}</span>
+          <span class="year-badge">${student.year}</span>
+        `;
+        div.onclick = () => selectStudent(student);
+        resultsDiv.appendChild(div);
+      });
+    }
+
+    resultsDiv.style.display = 'block';
+  }
+
+  function handleKeyDown(e) {
+    const resultsDiv = document.getElementById('searchResults');
+    const items = resultsDiv.getElementsByClassName('result-item');
+    if (resultsDiv.style.display === 'none' || items.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = (activeIndex + 1) % items.length;
+      updateActiveItem(items);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = (activeIndex - 1 + items.length) % items.length;
+      updateActiveItem(items);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIndex >= 0 && currentMatches[activeIndex]) {
+        selectStudent(currentMatches[activeIndex]);
+      } else if (currentMatches.length === 1) {
+        selectStudent(currentMatches[0]);
+      }
+    }
+  }
+
+  function updateActiveItem(items) {
+    for (let i = 0; i < items.length; i++) {
+      items[i].classList.remove('active');
+    }
+    if (activeIndex >= 0 && items[activeIndex]) {
+      items[activeIndex].classList.add('active');
+      items[activeIndex].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function selectStudent(student) {
+    selectedStudent = student;
+    document.getElementById('searchInput').value = student.name;
+    document.getElementById('searchResults').style.display = 'none';
+    
+    document.getElementById('selectedText').innerText = `${student.name} (${student.year})`;
+    document.getElementById('selectedBox').style.display = 'block';
+    document.getElementById('btnRequest').disabled = false;
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.input-group')) {
+      document.getElementById('searchResults').style.display = 'none';
+    }
+  });
+
+  function getDistanceInKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function checkGPSAndSubmit() {
+    if (!selectedStudent) return;
+
+    const btn = document.getElementById('btnRequest');
+    const statusMsg = document.getElementById('statusMsg');
+    const studentKey = `cooldown_${selectedStudent.name.toLowerCase()}`;
+    const lastCalled = localStorage.getItem(studentKey);
+    const now = Date.now();
+
+    if (lastCalled && (now - parseInt(lastCalled)) < COOLDOWN_TIME) {
+      const remainingMinutes = Math.ceil((COOLDOWN_TIME - (now - parseInt(lastCalled))) / 60000);
+      alert(`This student was recently requested. Please wait ${remainingMinutes} minute(s) before trying again.`);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    btn.disabled = true;
+    statusMsg.style.color = "#1a73e8";
+    statusMsg.innerText = "Checking location...";
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const distance = getDistanceInKm(position.coords.latitude, position.coords.longitude, SCHOOL_LAT, SCHOOL_LNG);
+
+        if (distance > MAX_DISTANCE_KM) {
+          btn.disabled = false;
+          statusMsg.innerText = "";
+          alert(`You are too far from the school (${distance.toFixed(2)} km away). You must be within ${MAX_DISTANCE_KM * 1000} meters.`);
+          return;
+        }
+
+        const nicknameMatch = selectedStudent.name.match(/\(([^)]+)\)/);
+        const nickname = nicknameMatch ? nicknameMatch[1] : selectedStudent.name.split(' ')[0];
+        const cleanFullname = selectedStudent.name.replace(/\([^)]+\)\s*/g, '');
+
+        pickupRef.push({
+          nickname: nickname,
+          fullname: cleanFullname,
+          studentYear: selectedStudent.year,
+          timestamp: now
+        });
+
+        localStorage.setItem(studentKey, now.toString());
+        statusMsg.style.color = "#28a745";
+        statusMsg.innerText = `Request sent for ${selectedStudent.name} (${selectedStudent.year})!`;
+        
+        selectedStudent = null;
+        document.getElementById('searchInput').value = '';
+        document.getElementById('selectedBox').style.display = 'none';
+      },
+      () => {
+        btn.disabled = false;
+        statusMsg.innerText = "";
+        alert("Unable to retrieve your location. Please allow location access.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+</script>
+</body>
+</html>
