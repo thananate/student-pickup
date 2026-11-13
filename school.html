@@ -3,40 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>School Queue Monitor</title>
+  <title>School Pickup Display</title>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <style>
-    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
-    .container { max-width: 650px; margin: 0 auto; }
-    .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 20px; }
-    h2, h3 { color: #1a73e8; margin-top: 0; }
-    .queue-item { display: flex; justify-content: space-between; align-items: center; background: #e8f0fe; padding: 12px 16px; border-radius: 8px; margin-bottom: 8px; border-left: 5px solid #1a73e8; }
-    .history-item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 10px 14px; border-radius: 8px; margin-bottom: 6px; border-left: 5px solid #34a853; color: #555; }
-    .now-calling { background: #e6f4ea; border-left-color: #34a853; font-weight: bold; }
-    .year-tag { background: #1a73e8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 5px; }
-    button { width: 100%; background-color: #34a853; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-bottom: 15px; }
-    button:hover { background-color: #2d8e47; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #0f172a;
+      color: white;
+      margin: 0;
+      padding: 20px;
+      padding-bottom: 85px; /* เว้นพื้นที่ด้านล่างไม่ให้ทับแถบตัวอักษรวิ่ง */
+      text-align: center;
+    }
+    h1 { color: #38bdf8; font-size: 36px; margin-bottom: 10px; }
+    #startAudioBtn {
+      background-color: #22c55e;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 20px;
+      font-weight: bold;
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+    }
+    #startAudioBtn:hover { background-color: #16a34a; }
+    
+    .current-call {
+      background: linear-gradient(135deg, #1e293b, #334155);
+      border: 3px solid #38bdf8;
+      border-radius: 16px;
+      padding: 30px;
+      max-width: 800px;
+      margin: 0 auto 30px auto;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .call-label { font-size: 20px; color: #94a3b8; text-transform: uppercase; letter-spacing: 2px; }
+    .student-nickname { font-size: 64px; font-weight: 800; color: #facc15; margin: 10px 0; }
+    .student-fullname { font-size: 28px; color: #e2e8f0; margin-bottom: 10px; }
+    .student-year {
+      display: inline-block;
+      background-color: #0284c7;
+      color: white;
+      padding: 8px 24px;
+      border-radius: 30px;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .queue-section { max-width: 800px; margin: 0 auto; text-align: left; }
+    .queue-title { font-size: 20px; color: #94a3b8; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+    .queue-item {
+      background-color: #1e293b;
+      padding: 15px 20px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 20px;
+    }
+
+    /* แถบตัวอักษรวิ่งด้านล่างจอ (Called History Ticker) */
+    .ticker-wrap {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 56px;
+      background-color: #0284c7;
+      border-top: 3px solid #38bdf8;
+      display: none; /* ซ่อนไว้ก่อนจนกว่าจะมีคนถูกเรียกผ่านไป */
+      align-items: center;
+      overflow: hidden;
+      z-index: 999;
+      box-shadow: 0 -4px 15px rgba(0,0,0,0.4);
+    }
+    .ticker-label {
+      background-color: #facc15;
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 18px;
+      padding: 0 20px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      white-space: nowrap;
+      z-index: 2;
+      box-shadow: 4px 0 10px rgba(0,0,0,0.25);
+    }
+    .ticker-move-area {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+    }
+    .ticker-content {
+      display: inline-block;
+      padding-left: 100%;
+      font-size: 22px;
+      font-weight: 600;
+      color: #ffffff;
+      animation: tickerScroll 25s linear infinite;
+    }
+    .ticker-item {
+      margin-right: 45px;
+    }
+    .ticker-time {
+      color: #fde047;
+      font-size: 18px;
+      margin-left: 6px;
+    }
+
+    @keyframes tickerScroll {
+      0%   { transform: translateX(0); }
+      100% { transform: translateX(-100%); }
+    }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <div class="card">
-    <h2>School Queue Monitor</h2>
-    <button id="btnStart" onclick="startAudioSystem()">🔊 Click to Start Audio System</button>
-    <p>Audio Status: <strong id="speakingStatus" style="color: #d93025;">System Inactive</strong></p>
-    <hr>
-    
-    <h3>⏳ Queue List (<span id="queueCount">0</span>)</h3>
-    <div id="queueList"></div>
+  <h1>STUDENT PICKUP QUEUE</h1>
+  <button id="startAudioBtn" onclick="enableAudio()">🔊 Click to Enable Voice Announcement</button>
 
-    <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-
-    <h3 style="color: #34a853;">✅ Called History</h3>
-    <div id="historyList"></div>
+  <div class="current-call">
+    <div class="call-label">Now Calling</div>
+    <div id="currentNickname" class="student-nickname">-</div>
+    <div id="currentFullname" class="student-fullname">Waiting for pickup requests...</div>
+    <div id="currentYear" class="student-year" style="display: none;"></div>
   </div>
-</div>
+
+  <div class="queue-section">
+    <div class="queue-title">Upcoming Queue (<span id="queueCount">0</span>)</div>
+    <div id="queueList"></div>
+  </div>
+
+  <!-- แถบตัวอักษรวิ่งแสดงรายชื่อที่เรียกผ่านไปแล้ว -->
+  <div id="tickerWrap" class="ticker-wrap">
+    <div class="ticker-label">RECENTLY CALLED</div>
+    <div class="ticker-move-area">
+      <div id="tickerContent" class="ticker-content"></div>
+    </div>
+  </div>
 
 <script>
   const firebaseConfig = {
@@ -54,156 +165,153 @@
   const database = firebase.database();
   const pickupRef = database.ref('pickup_queue');
 
-  let queueData = [];
-  let historyData = [];
+  let audioEnabled = false;
   let isSpeaking = false;
-  let isAudioActive = false;
+  let queueItems = [];
+  let calledHistory = []; // เก็บประวัติรายชื่อที่เรียกผ่านไปแล้ว
+  const MAX_HISTORY_ITEMS = 15; // แสดงย้อนหลังสูงสุด 15 คนล่าสุด
 
-  // โหลดรายการเสียงเตรียมไว้ในเบราว์เซอร์
-  window.speechSynthesis.onvoiceschanged = () => {
-    window.speechSynthesis.getVoices();
-  };
-
-  function startAudioSystem() {
-    isAudioActive = true;
-    document.getElementById('btnStart').style.display = 'none';
-    document.getElementById('speakingStatus').innerText = "Active (Waiting for queue...)";
-    document.getElementById('speakingStatus').style.color = "#28a745";
-
-    const testSpeech = new SpeechSynthesisUtterance('System activated');
-    testSpeech.lang = 'en-US';
-    window.speechSynthesis.speak(testSpeech);
-
-    pickupRef.on('child_added', (snapshot) => {
-      const student = { id: snapshot.key, ...snapshot.val() };
-      
-      if (!queueData.some(item => item.id === student.id)) {
-        queueData.push(student);
-        renderQueue();
-
-        if (!isSpeaking) {
-          processQueue();
-        }
-      }
-    });
+  function enableAudio() {
+    audioEnabled = true;
+    const btn = document.getElementById('startAudioBtn');
+    btn.innerText = "✅ Voice Announcement Active";
+    btn.style.backgroundColor = "#0284c7";
+    
+    const testUtterance = new SpeechSynthesisUtterance("");
+    window.speechSynthesis.speak(testUtterance);
+    processNextInQueue();
   }
+
+  pickupRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    queueItems = [];
+    if (data) {
+      Object.keys(data).forEach(key => {
+        queueItems.push({ id: key, ...data[key] });
+      });
+      queueItems.sort((a, b) => a.timestamp - b.timestamp);
+    }
+    renderQueue();
+    processNextInQueue();
+  });
 
   function renderQueue() {
     const queueListDiv = document.getElementById('queueList');
-    document.getElementById('queueCount').innerText = queueData.length;
+    const queueCountSpan = document.getElementById('queueCount');
+    
+    const upcoming = isSpeaking ? queueItems.slice(1) : queueItems;
+    queueCountSpan.innerText = upcoming.length;
     queueListDiv.innerHTML = '';
 
-    queueData.forEach((student, index) => {
+    upcoming.forEach((item, index) => {
       const div = document.createElement('div');
-      div.className = `queue-item ${index === 0 && isSpeaking ? 'now-calling' : ''}`;
-      const yearText = student.studentYear ? `<span class="year-tag">${student.studentYear}</span>` : '';
+      div.className = 'queue-item';
       div.innerHTML = `
-        <div>
-          <strong>${index + 1}. ${student.nickname}</strong> (${student.fullname}) ${yearText}
-        </div>
-        <small>${index === 0 && isSpeaking ? '🔊 Calling...' : 'Waiting'}</small>
+        <span><strong>#${index + 1}</strong> ${item.nickname} (${item.fullname})</span>
+        <span style="background: #334155; padding: 4px 12px; border-radius: 15px; font-size: 16px;">${item.studentYear}</span>
       `;
       queueListDiv.appendChild(div);
     });
   }
 
-  function renderHistory() {
-    const historyListDiv = document.getElementById('historyList');
-    historyListDiv.innerHTML = '';
+  // เพิ่มรายชื่อที่เรียกเสร็จแล้วลงในแถบตัวอักษรวิ่งด้านล่าง
+  function addToCalledTicker(student) {
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 
-    historyData.forEach((student) => {
-      const timeStr = new Date(student.calledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const div = document.createElement('div');
-      div.className = 'history-item';
-      const yearText = student.studentYear ? `<span class="year-tag" style="background: #34a853;">${student.studentYear}</span>` : '';
-      div.innerHTML = `
-        <div>
-          <strong>${student.nickname}</strong> (${student.fullname}) ${yearText}
-        </div>
-        <small style="color: #28a745; font-weight: 500;">Called at ${timeStr}</small>
-      `;
-      historyListDiv.appendChild(div);
+    calledHistory.unshift({
+      nickname: student.nickname,
+      fullname: student.fullname,
+      studentYear: student.studentYear,
+      time: timeStr
     });
+
+    if (calledHistory.length > MAX_HISTORY_ITEMS) {
+      calledHistory.pop();
+    }
+
+    renderTicker();
   }
 
-  function processQueue() {
-    if (!isAudioActive || queueData.length === 0) {
-      isSpeaking = false;
-      document.getElementById('speakingStatus').innerText = "Active (Waiting for queue...)";
-      document.getElementById('speakingStatus').style.color = "#28a745";
-      renderQueue();
+  function renderTicker() {
+    const tickerWrap = document.getElementById('tickerWrap');
+    const tickerContent = document.getElementById('tickerContent');
+
+    if (calledHistory.length === 0) {
+      tickerWrap.style.display = 'none';
       return;
     }
 
-    isSpeaking = true;
-    const current = queueData[0];
-    document.getElementById('speakingStatus').innerText = `Calling: ${current.nickname}`;
-    document.getElementById('speakingStatus').style.color = "#d93025";
-    renderQueue();
+    tickerWrap.style.display = 'flex';
+    tickerContent.innerHTML = calledHistory.map(item => 
+      `<span class="ticker-item">• <strong>${item.nickname}</strong> (${item.fullname} - ${item.studentYear}) <span class="ticker-time">[${item.time}]</span></span>`
+    ).join('');
 
-    speakEN(current.nickname, current.fullname, current.studentYear, () => {
-      pickupRef.child(current.id).remove();
+    // ปรับความเร็วในการวิ่งอัตโนมัติตามจำนวนรายชื่อ (ยิ่งหลายคนยิ่งให้เวลาวิ่งนานขึ้น จะได้อ่านทัน)
+    const duration = Math.max(18, calledHistory.length * 6);
+    tickerContent.style.animationDuration = `${duration}s`;
+  }
+
+  function speakText(text, rate = 0.85) {
+    return new Promise((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      const ukFemale = voices.find(v => v.lang === 'en-GB' && v.name.includes('Female')) 
+                    || voices.find(v => v.lang === 'en-GB');
+      if (ukFemale) utterance.voice = ukFemale;
       
-      const finishedStudent = queueData.shift();
-      finishedStudent.calledAt = Date.now();
-      historyData.unshift(finishedStudent);
-      
-      renderHistory();
-      
-      setTimeout(() => {
-        processQueue();
-      }, 2000);
+      utterance.lang = 'en-GB';
+      utterance.rate = rate;
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      window.speechSynthesis.speak(utterance);
     });
   }
-function speakEN(nickname, fullname, studentYear, callback) {
-    const yearAnnouncement = studentYear ? `from ${studentYear}` : '';
-    // เติม , , เพื่อเว้นจังหวะระหว่างชื่อเล่น ชื่อจริง และชั้นเรียน
-    const text = `${nickname}.   . ${fullname}, , ${yearAnnouncement}. Please come to the gate.`;
-    
-    window.speechSynthesis.cancel();
 
-    // ดึงรายการเสียงทั้งหมดในระบบ
-    const voices = window.speechSynthesis.getVoices();
+  function pause(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-    // 1. ค้นหาเสียงผู้หญิงสำเนียงเอเชียก่อน (เช่น สิงคโปร์ en-SG, อินเดีย en-IN)
-    // 2. ถ้าไม่มี ให้หาเสียงผู้หญิงสำเนียงอังกฤษ (British English: en-GB เช่น Hazel, Susan, Sonia, Victoria)
-    // 3. ถ้าไม่มี ให้ดึงเสียง en-GB ทั่วไป หรือเสียงอังกฤษใดๆ ที่มี
-    const asianOrUKFemaleVoice = voices.find(v => 
-      (v.lang.includes('en-SG') || v.lang.includes('en-IN') || v.lang.includes('en-GB')) &&
-      (v.name.includes('Female') || v.name.includes('Hazel') || v.name.includes('Susan') || v.name.includes('Sonia') || v.name.includes('Google UK English Female'))
-    ) || voices.find(v => v.lang.includes('en-GB')) || voices.find(v => v.lang.includes('en'));
+  async function processNextInQueue() {
+    if (!audioEnabled || isSpeaking || queueItems.length === 0) return;
 
-    // --- รอบที่ 1 ---
-    const speech1 = new SpeechSynthesisUtterance(text);
-    speech1.lang = 'en-GB'; // กำหนดให้ใช้สำเนียง British English
-    speech1.rate = 0.75;    // ความเร็วช้าลงกำลังดี
-    if (asianOrUKFemaleVoice) speech1.voice = asianOrUKFemaleVoice;
+    isSpeaking = true;
+    const current = queueItems[0];
+    renderQueue();
 
-    speech1.onend = () => {
-      // เว้นระยะ 1.5 วินาที แล้วประกาศซ้ำ --- รอบที่ 2 ---
-      setTimeout(() => {
-        const speech2 = new SpeechSynthesisUtterance(text);
-        speech2.lang = 'en-GB';
-        speech2.rate = 0.75;
-        if (asianOrUKFemaleVoice) speech2.voice = asianOrUKFemaleVoice;
+    document.getElementById('currentNickname').innerText = current.nickname;
+    document.getElementById('currentFullname').innerText = current.fullname;
+    const yearEl = document.getElementById('currentYear');
+    yearEl.innerText = current.studentYear;
+    yearEl.style.display = 'inline-block';
 
-        speech2.onend = () => {
-          if (callback) callback();
-        };
+    // ประกาศเสียงพร้อมเว้นจังหวะ
+    await speakText(current.nickname, 0.85);
+    await pause(500);
+    await speakText(current.fullname, 0.85);
+    await pause(400);
+    await speakText(current.studentYear, 0.85);
+    await pause(1200);
 
-        speech2.onerror = () => {
-          if (callback) callback();
-        };
+    // ประกาศซ้ำรอบที่ 2
+    await speakText(`${current.nickname}, ${current.studentYear}`, 0.85);
+    await pause(1500);
 
-        window.speechSynthesis.speak(speech2);
-      }, 1500);
-    };
+    // นำชื่อที่เพิ่งเรียกเสร็จไปต่อท้ายในแถบตัวอักษรวิ่งด้านล่างจอ
+    addToCalledTicker(current);
 
-    speech1.onerror = () => {
-      if (callback) callback();
-    };
+    // ลบออกจากคิวหลักใน Firebase
+    await pickupRef.child(current.id).remove();
 
-    window.speechSynthesis.speak(speech1);
+    isSpeaking = false;
+
+    if (queueItems.length <= 1) {
+      document.getElementById('currentNickname').innerText = '-';
+      document.getElementById('currentFullname').innerText = 'Waiting for pickup requests...';
+      yearEl.style.display = 'none';
+    } else {
+      processNextInQueue();
+    }
   }
 </script>
 </body>
