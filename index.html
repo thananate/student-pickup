@@ -11,41 +11,60 @@
     .container { max-width: 500px; margin: 0 auto; }
     .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
     h2 { color: #1a73e8; margin-top: 0; text-align: center; }
-    .input-group { margin-bottom: 15px; text-align: left; position: relative; }
+    .input-group { margin-bottom: 15px; text-align: left; }
     label { font-weight: 600; display: block; margin-bottom: 5px; color: #444; }
     input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
     input:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15); }
-    .search-results { position: absolute; width: 100%; max-height: 240px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; margin-top: 4px; display: none; }
-    .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
-    .result-item:hover, .result-item.active { background-color: #e8f0fe; }
-    .highlight { color: #1a73e8; font-weight: 700; text-decoration: underline; }
-    .year-badge { background: #1a73e8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; white-space: nowrap; margin-left: 8px; }
-    .selected-box { background: #e6f4ea; border: 1px solid #34a853; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: none; }
-    button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; }
+    button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; }
     button:hover { background-color: #1557b0; }
     button:disabled { background-color: #a0c3ff; cursor: not-allowed; }
+    
+    /* สไตล์ส่วนรายชื่อลูกหลัง Login */
+    .header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+    .logout-btn { width: auto; background-color: #f1f3f4; color: #555; padding: 6px 12px; font-size: 13px; margin: 0; }
+    .logout-btn:hover { background-color: #e2e6ea; }
+    .student-card { border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 12px; background: #fafafa; display: flex; justify-content: space-between; align-items: center; }
+    .student-info { text-align: left; }
+    .student-name { font-weight: 700; font-size: 16px; color: #222; }
+    .year-badge { display: inline-block; background: #e8f0fe; color: #1a73e8; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-top: 4px; }
+    .pickup-btn { width: auto; padding: 10px 18px; font-size: 14px; margin: 0; background-color: #28a745; }
+    .pickup-btn:hover { background-color: #218838; }
+    .pickup-btn:disabled { background-color: #94d3a2; }
   </style>
 </head>
 <body>
 
 <div class="container">
   <div class="card">
-    <h2>Student Pickup Request</h2>
-    <p id="loadingMsg" style="text-align: center; color: #1a73e8; font-size: 14px;">Loading student database...</p>
-    
-    <div class="input-group">
-      <label>Search Student Name / Nickname:</label>
-      <input type="text" id="searchInput" placeholder="Start typing name or nickname..." oninput="filterStudents()" onkeydown="handleKeyDown(event)" autocomplete="off" disabled>
-      <div id="searchResults" class="search-results"></div>
+    <h2>Student Pickup System</h2>
+    <p id="loadingMsg" style="text-align: center; color: #1a73e8; font-size: 14px;">Loading database...</p>
+
+    <!-- ส่วนที่ 1: หน้าจอ Login -->
+    <div id="loginSection" style="display: none;">
+      <div class="input-group">
+        <label>Parent Phone Number:</label>
+        <input type="tel" id="phoneInput" placeholder="e.g. 0812345678" autocomplete="tel">
+      </div>
+      <div class="input-group">
+        <label>Password:</label>
+        <input type="password" id="passwordInput" placeholder="Enter your password" onkeydown="if(event.key==='Enter') handleLogin()">
+      </div>
+      <button onclick="handleLogin()">Login</button>
+      <p id="loginError" style="color: #d93025; font-size: 14px; text-align: center; margin-top: 10px;"></p>
     </div>
 
-    <div id="selectedBox" class="selected-box">
-      <div style="font-size: 13px; color: #28a745; font-weight: bold;">Selected Student:</div>
-      <div id="selectedText" style="font-size: 16px; font-weight: 600; margin-top: 4px;"></div>
+    <!-- ส่วนที่ 2: หน้าจอรายชื่อลูกหลัง Login สำเร็จ -->
+    <div id="dashboardSection" style="display: none;">
+      <div class="header-bar">
+        <span id="welcomePhone" style="font-size: 14px; color: #555; font-weight: 600;"></span>
+        <button class="logout-btn" onclick="handleLogout()">Logout</button>
+      </div>
+      
+      <p style="font-size: 14px; color: #666; margin-bottom: 12px;">Select your child to request pickup:</p>
+      <div id="myChildrenList"></div>
+      
+      <p id="statusMsg" style="color: #28a745; font-weight: 600; font-size: 15px; margin-top: 15px; text-align: center;"></p>
     </div>
-
-    <button id="btnRequest" onclick="checkGPSAndSubmit()" disabled>Submit Request</button>
-    <p id="statusMsg" style="color: #28a745; font-weight: 600; font-size: 15px; margin-top: 15px; text-align: center;"></p>
   </div>
 </div>
 
@@ -72,154 +91,141 @@
   const SCHOOL_LNG = 100.5012773;
   const MAX_DISTANCE_KM = 0.5;
 
-  let STUDENT_LIST = [];
-  let selectedStudent = null;
-  let currentMatches = [];
-  let activeIndex = -1;
+  let ALL_RECORDS = [];
 
-  // ฟังก์ชันรับข้อมูลจาก Google Sheets ผ่าน JSONP (ไม่ติดบล็อก CORS แน่นอน)
+  // ทำความสะอาดเบอร์โทร (ตัดขีดและช่องว่างออก เพื่อให้เทียบง่าย)
+  function normalizePhone(phone) {
+    return String(phone || '').replace(/[^0-9]/g, '');
+  }
+
   window.handleSheetData = function(json) {
     const loadingMsg = document.getElementById('loadingMsg');
-    const searchInput = document.getElementById('searchInput');
 
     try {
       const rows = json.table.rows;
-      const uniqueMap = new Map();
+      ALL_RECORDS = [];
 
       rows.forEach(row => {
-        if (row.c && row.c[0] && row.c[1]) {
+        if (row.c && row.c[0] && row.c[1] && row.c[2] && row.c[3]) {
           const name = String(row.c[0].v || '').trim();
           const rawYear = String(row.c[1].v || '').trim();
-          if (name && rawYear && name.toLowerCase() !== 'student full name') {
+          const phone = normalizePhone(row.c[2].v);
+          const password = String(row.c[3].v || '').trim();
+
+          if (name && rawYear && phone && password && name.toLowerCase() !== 'student full name') {
             const year = rawYear.toLowerCase().startsWith('year') ? rawYear : `Year ${rawYear}`;
-            uniqueMap.set(name.toLowerCase(), { name, year });
+            ALL_RECORDS.push({ name, year, phone, password });
           }
         }
       });
 
-      STUDENT_LIST = Array.from(uniqueMap.values());
       loadingMsg.style.display = 'none';
-      searchInput.disabled = false;
+      checkSavedSession();
     } catch (error) {
       loadingMsg.style.color = '#d93025';
-      loadingMsg.innerText = 'Error parsing student data.';
+      loadingMsg.innerText = 'Error loading database.';
     }
   };
 
-  // โหลดข้อมูลด้วย Script Tag เพื่อทะลุการบล็อก CORS
   function loadStudentsViaJSONP() {
     const script = document.createElement('script');
     script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:handleSheetData`;
     script.onerror = function() {
       const loadingMsg = document.getElementById('loadingMsg');
       loadingMsg.style.color = '#d93025';
-      loadingMsg.innerText = 'Cannot connect to Google Sheets. Check internet or sheet sharing.';
+      loadingMsg.innerText = 'Cannot connect to Google Sheets.';
     };
     document.body.appendChild(script);
   }
 
   loadStudentsViaJSONP();
 
-  function highlightMatch(text, query) {
-    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(${escapedQuery})`, 'gi');
-    return text.replace(regex, '<span class="highlight">$1</span>');
+  // ตรวจสอบว่าเคยล็อกอินค้างไว้ในเครื่องนี้หรือไม่
+  function checkSavedSession() {
+    const savedPhone = localStorage.getItem('pickup_auth_phone');
+    const savedPass = localStorage.getItem('pickup_auth_pass');
+
+    if (savedPhone && savedPass) {
+      const matchedChildren = findChildren(savedPhone, savedPass);
+      if (matchedChildren.length > 0) {
+        showDashboard(savedPhone, matchedChildren);
+        return;
+      }
+    }
+    document.getElementById('loginSection').style.display = 'block';
   }
 
-  function filterStudents() {
-    const query = document.getElementById('searchInput').value.trim();
-    const lowerQuery = query.toLowerCase();
-    const resultsDiv = document.getElementById('searchResults');
-    
-    selectedStudent = null;
-    activeIndex = -1;
-    document.getElementById('selectedBox').style.display = 'none';
-    document.getElementById('btnRequest').disabled = true;
+  function findChildren(phone, password) {
+    const cleanPhone = normalizePhone(phone);
+    const uniqueChildren = new Map();
 
-    if (query.length < 1) {
-      resultsDiv.style.display = 'none';
-      currentMatches = [];
+    ALL_RECORDS.forEach(record => {
+      if (record.phone === cleanPhone && record.password === password) {
+        uniqueChildren.set(record.name.toLowerCase(), { name: record.name, year: record.year });
+      }
+    });
+
+    return Array.from(uniqueChildren.values());
+  }
+
+  function handleLogin() {
+    const phone = document.getElementById('phoneInput').value.trim();
+    const password = document.getElementById('passwordInput').value.trim();
+    const errorMsg = document.getElementById('loginError');
+
+    if (!phone || !password) {
+      errorMsg.innerText = 'Please enter both phone number and password.';
       return;
     }
 
-    currentMatches = STUDENT_LIST
-      .filter(s => s.name.toLowerCase().includes(lowerQuery))
-      .sort((a, b) => {
-        const aStarts = a.name.toLowerCase().startsWith(lowerQuery);
-        const bStarts = b.name.toLowerCase().startsWith(lowerQuery);
-        if (aStarts && !bStarts) return -1;
-        if (!aStarts && bStarts) return 1;
-        return a.name.localeCompare(b.name);
-      });
+    const matchedChildren = findChildren(phone, password);
 
-    resultsDiv.innerHTML = '';
-
-    if (currentMatches.length === 0) {
-      resultsDiv.innerHTML = '<div style="padding: 12px; color: #888; text-align: center;">No student found</div>';
-    } else {
-      currentMatches.forEach((student) => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.innerHTML = `
-          <span>${highlightMatch(student.name, query)}</span>
-          <span class="year-badge">${student.year}</span>
-        `;
-        div.onclick = () => selectStudent(student);
-        resultsDiv.appendChild(div);
-      });
+    if (matchedChildren.length === 0) {
+      errorMsg.innerText = 'Invalid phone number or password.';
+      return;
     }
 
-    resultsDiv.style.display = 'block';
+    // บันทึกการล็อกอินไว้ในเครื่อง
+    localStorage.setItem('pickup_auth_phone', normalizePhone(phone));
+    localStorage.setItem('pickup_auth_pass', password);
+    errorMsg.innerText = '';
+
+    showDashboard(normalizePhone(phone), matchedChildren);
   }
 
-  function handleKeyDown(e) {
-    const resultsDiv = document.getElementById('searchResults');
-    const items = resultsDiv.getElementsByClassName('result-item');
-    if (resultsDiv.style.display === 'none' || items.length === 0) return;
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      activeIndex = (activeIndex + 1) % items.length;
-      updateActiveItem(items);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      activeIndex = (activeIndex - 1 + items.length) % items.length;
-      updateActiveItem(items);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (activeIndex >= 0 && currentMatches[activeIndex]) {
-        selectStudent(currentMatches[activeIndex]);
-      } else if (currentMatches.length === 1) {
-        selectStudent(currentMatches[0]);
-      }
-    }
+  function handleLogout() {
+    localStorage.removeItem('pickup_auth_phone');
+    localStorage.removeItem('pickup_auth_pass');
+    document.getElementById('phoneInput').value = '';
+    document.getElementById('passwordInput').value = '';
+    document.getElementById('statusMsg').innerText = '';
+    document.getElementById('dashboardSection').style.display = 'none';
+    document.getElementById('loginSection').style.display = 'block';
   }
 
-  function updateActiveItem(items) {
-    for (let i = 0; i < items.length; i++) {
-      items[i].classList.remove('active');
-    }
-    if (activeIndex >= 0 && items[activeIndex]) {
-      items[activeIndex].classList.add('active');
-      items[activeIndex].scrollIntoView({ block: 'nearest' });
-    }
-  }
+  function showDashboard(phone, children) {
+    document.getElementById('loginSection').style.display = 'none';
+    document.getElementById('dashboardSection').style.display = 'block';
+    document.getElementById('welcomePhone').innerText = `Parent: ${phone}`;
 
-  function selectStudent(student) {
-    selectedStudent = student;
-    document.getElementById('searchInput').value = student.name;
-    document.getElementById('searchResults').style.display = 'none';
-    
-    document.getElementById('selectedText').innerText = `${student.name} (${student.year})`;
-    document.getElementById('selectedBox').style.display = 'block';
-    document.getElementById('btnRequest').disabled = false;
-  }
+    const listDiv = document.getElementById('myChildrenList');
+    listDiv.innerHTML = '';
 
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.input-group')) {
-      document.getElementById('searchResults').style.display = 'none';
-    }
-  });
+    children.forEach((child, index) => {
+      const card = document.createElement('div');
+      card.className = 'student-card';
+      card.innerHTML = `
+        <div class="student-info">
+          <div class="student-name">${child.name}</div>
+          <span class="year-badge">${child.year}</span>
+        </div>
+        <button class="pickup-btn" id="btn_${index}" onclick="requestPickup('${child.name.replace(/'/g, "\\'")}', '${child.year}', 'btn_${index}')">
+          Call Pickup
+        </button>
+      `;
+      listDiv.appendChild(card);
+    });
+  }
 
   function getDistanceInKm(lat1, lon1, lat2, lon2) {
     const R = 6371;
@@ -230,18 +236,16 @@
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
   }
 
-  function checkGPSAndSubmit() {
-    if (!selectedStudent) return;
-
-    const btn = document.getElementById('btnRequest');
+  function requestPickup(studentName, studentYear, btnId) {
+    const btn = document.getElementById(btnId);
     const statusMsg = document.getElementById('statusMsg');
-    const studentKey = `cooldown_${selectedStudent.name.toLowerCase()}`;
+    const studentKey = `cooldown_${studentName.toLowerCase()}`;
     const lastCalled = localStorage.getItem(studentKey);
     const now = Date.now();
 
     if (lastCalled && (now - parseInt(lastCalled)) < COOLDOWN_TIME) {
       const remainingMinutes = Math.ceil((COOLDOWN_TIME - (now - parseInt(lastCalled))) / 60000);
-      alert(`This student was recently requested. Please wait ${remainingMinutes} minute(s) before trying again.`);
+      alert(`${studentName} was recently requested. Please wait ${remainingMinutes} minute(s).`);
       return;
     }
 
@@ -265,24 +269,20 @@
           return;
         }
 
-        const nicknameMatch = selectedStudent.name.match(/\(([^)]+)\)/);
-        const nickname = nicknameMatch ? nicknameMatch[1] : selectedStudent.name.split(' ')[0];
-        const cleanFullname = selectedStudent.name.replace(/\([^)]+\)\s*/g, '');
+        const nicknameMatch = studentName.match(/\(([^)]+)\)/);
+        const nickname = nicknameMatch ? nicknameMatch[1] : studentName.split(' ')[0];
+        const cleanFullname = studentName.replace(/\([^)]+\)\s*/g, '');
 
         pickupRef.push({
           nickname: nickname,
           fullname: cleanFullname,
-          studentYear: selectedStudent.year,
+          studentYear: studentYear,
           timestamp: now
         });
 
         localStorage.setItem(studentKey, now.toString());
         statusMsg.style.color = "#28a745";
-        statusMsg.innerText = `Request sent for ${selectedStudent.name} (${selectedStudent.year})!`;
-        
-        selectedStudent = null;
-        document.getElementById('searchInput').value = '';
-        document.getElementById('selectedBox').style.display = 'none';
+        statusMsg.innerText = `Request sent for ${studentName} (${studentYear})!`;
       },
       () => {
         btn.disabled = false;
