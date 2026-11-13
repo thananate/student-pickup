@@ -52,4 +52,177 @@
     apiKey: "AIzaSyDg0_AiLLITFAdqgN0AZk-l0vGc--HlAzU",
     authDomain: "ips-student-pickup-system.firebaseapp.com",
     databaseURL: "https://ips-student-pickup-system-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId:
+    projectId: "ips-student-pickup-system",
+    storageBucket: "ips-student-pickup-system.firebasestorage.app",
+    messagingSenderId: "732917618676",
+    appId: "1:732917618676:web:9b37c6cb43casf15a6cba1",
+    measurementId: "G-Y3KESCV89G"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+  const pickupRef = database.ref('pickup_queue');
+
+  // ลิงก์ CSV จาก Google Sheets ของคุณ
+  const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOZC2-F638vRTEeXeVs2igfBzHROKg0X8NbFYbyFppxZBdRLNtGW4DIqyzMbCDe2d9XzmP2E63ghDC/pub?output=csv";
+
+  const COOLDOWN_TIME = 10 * 60 * 1000;
+  const SCHOOL_LAT = 13.7221873;
+  const SCHOOL_LNG = 100.5012773;
+  const MAX_DISTANCE_KM = 0.5;
+
+  let STUDENT_LIST = [];
+  let selectedStudent = null;
+
+  async function loadStudentsFromSheet() {
+    const loadingMsg = document.getElementById('loadingMsg');
+    const searchInput = document.getElementById('searchInput');
+
+    try {
+      const response = await fetch(GOOGLE_SHEET_CSV_URL);
+      const csvText = await response.text();
+      
+      const rows = csvText.split('\n').slice(1);
+      const uniqueMap = new Map();
+
+      rows.forEach(row => {
+        const cols = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+        if (cols.length >= 2) {
+          const name = cols[0].replace(/^"|"$/g, '').trim();
+          const rawYear = cols[1].replace(/^"|"$/g, '').trim();
+          if (name && rawYear) {
+            const year = rawYear.toLowerCase().startsWith('year') ? rawYear : `Year ${rawYear}`;
+            uniqueMap.set(name.toLowerCase(), { name, year });
+          }
+        }
+      });
+
+      STUDENT_LIST = Array.from(uniqueMap.values());
+      loadingMsg.style.display = 'none';
+      searchInput.disabled = false;
+    } catch (error) {
+      loadingMsg.style.color = '#d93025';
+      loadingMsg.innerText = 'Error loading student database. Please refresh.';
+    }
+  }
+
+  loadStudentsFromSheet();
+
+  function filterStudents() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const resultsDiv = document.getElementById('searchResults');
+    
+    selectedStudent = null;
+    document.getElementById('selectedBox').style.display = 'none';
+    document.getElementById('btnRequest').disabled = true;
+
+    if (query.length < 2) {
+      resultsDiv.style.display = 'none';
+      return;
+    }
+
+    const matches = STUDENT_LIST.filter(s => s.name.toLowerCase().includes(query));
+    resultsDiv.innerHTML = '';
+
+    if (matches.length === 0) {
+      resultsDiv.innerHTML = '<div style="padding: 12px; color: #888; text-align: center;">No student found</div>';
+    } else {
+      matches.forEach(student => {
+        const div = document.createElement('div');
+        div.className = 'result-item';
+        div.innerHTML = `
+          <span>${student.name}</span>
+          <span class="year-badge">${student.year}</span>
+        `;
+        div.onclick = () => selectStudent(student);
+        resultsDiv.appendChild(div);
+      });
+    }
+
+    resultsDiv.style.display = 'block';
+  }
+
+  function selectStudent(student) {
+    selectedStudent = student;
+    document.getElementById('searchInput').value = student.name;
+    document.getElementById('searchResults').style.display = 'none';
+    
+    document.getElementById('selectedText').innerText = `${student.name} (${student.year})`;
+    document.getElementById('selectedBox').style.display = 'block';
+    document.getElementById('btnRequest').disabled = false;
+  }
+
+  function getDistanceInKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function checkGPSAndSubmit() {
+    if (!selectedStudent) return;
+
+    const btn = document.getElementById('btnRequest');
+    const statusMsg = document.getElementById('statusMsg');
+    const studentKey = `cooldown_${selectedStudent.name.toLowerCase()}`;
+    const lastCalled = localStorage.getItem(studentKey);
+    const now = Date.now();
+
+    if (lastCalled && (now - parseInt(lastCalled)) < COOLDOWN_TIME) {
+      const remainingMinutes = Math.ceil((COOLDOWN_TIME - (now - parseInt(lastCalled))) / 60000);
+      alert(`This student was recently requested. Please wait ${remainingMinutes} minute(s) before trying again.`);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    btn.disabled = true;
+    statusMsg.style.color = "#1a73e8";
+    statusMsg.innerText = "Checking location...";
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const distance = getDistanceInKm(position.coords.latitude, position.coords.longitude, SCHOOL_LAT, SCHOOL_LNG);
+
+        if (distance > MAX_DISTANCE_KM) {
+          btn.disabled = false;
+          statusMsg.innerText = "";
+          alert(`You are too far from the school (${distance.toFixed(2)} km away). You must be within ${MAX_DISTANCE_KM * 1000} meters.`);
+          return;
+        }
+
+        const nicknameMatch = selectedStudent.name.match(/\(([^)]+)\)/);
+        const nickname = nicknameMatch ? nicknameMatch[1] : selectedStudent.name.split(' ')[0];
+        const cleanFullname = selectedStudent.name.replace(/\([^)]+\)\s*/g, '');
+
+        pickupRef.push({
+          nickname: nickname,
+          fullname: cleanFullname,
+          studentYear: selectedStudent.year,
+          timestamp: now
+        });
+
+        localStorage.setItem(studentKey, now.toString());
+        statusMsg.style.color = "#28a745";
+        statusMsg.innerText = `Request sent for ${selectedStudent.name} (${selectedStudent.year})!`;
+        
+        selectedStudent = null;
+        document.getElementById('searchInput').value = '';
+        document.getElementById('selectedBox').style.display = 'none';
+      },
+      () => {
+        btn.disabled = false;
+        statusMsg.innerText = "";
+        alert("Unable to retrieve your location. Please allow location access.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }
+</script>
+</body>
+</html>
