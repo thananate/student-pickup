@@ -13,11 +13,13 @@
       color: white;
       margin: 0;
       padding: 20px;
-      padding-bottom: 130px; /* เว้นระยะด้านล่างเผื่อแถบตัววิ่งขนาดใหญ่ */
+      padding-bottom: 130px;
       text-align: center;
     }
     h1 { color: #38bdf8; font-size: 36px; margin-bottom: 10px; }
     #startAudioBtn {
+      position: relative;
+      z-index: 1000;
       background-color: #22c55e;
       color: white;
       border: none;
@@ -66,7 +68,7 @@
       font-size: 20px;
     }
 
-    /* แถบตัวอักษรวิ่งด้านล่างจอ (ขนาดใหญ่พิเศษ + วิ่ง 2 รอบ) */
+    /* แถบตัวอักษรวิ่งด้านล่างจอ */
     .ticker-wrap {
       position: fixed;
       bottom: 0;
@@ -78,7 +80,8 @@
       display: none;
       align-items: center;
       overflow: hidden;
-      z-index: 999;
+      z-index: 500;
+      pointer-events: none; /* ป้องกันการบังการคลิกบนหน้าจอ */
       box-shadow: 0 -4px 15px rgba(0,0,0,0.4);
     }
     .ticker-label {
@@ -107,7 +110,6 @@
       font-size: 36px;
       font-weight: 700;
       color: #ffffff;
-      animation: tickerScroll 25s linear 2 forwards;
     }
     .ticker-item {
       margin-right: 60px;
@@ -127,7 +129,7 @@
 <body>
 
   <h1>STUDENT PICKUP QUEUE</h1>
-  <button id="startAudioBtn" onclick="enableAudio()">🔊 Click to Enable Voice Announcement</button>
+  <button type="button" id="startAudioBtn" onclick="enableAudio()">🔊 Click to Enable Voice Announcement</button>
 
   <div class="current-call">
     <div class="call-label">Now Calling</div>
@@ -171,14 +173,32 @@
   let calledHistory = [];
   const MAX_HISTORY_ITEMS = 15;
 
+  // โหลดรายการเสียงล่วงหน้าเพื่อให้เบราว์เซอร์พร้อมพูดทันที
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
+  }
+
   function enableAudio() {
     audioEnabled = true;
     const btn = document.getElementById('startAudioBtn');
     btn.innerText = "✅ Voice Announcement Active";
     btn.style.backgroundColor = "#0284c7";
     
-    const testUtterance = new SpeechSynthesisUtterance("");
-    window.speechSynthesis.speak(testUtterance);
+    try {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const testUtterance = new SpeechSynthesisUtterance("Voice ready");
+        testUtterance.lang = 'en-GB';
+        testUtterance.volume = 0.5;
+        window.speechSynthesis.speak(testUtterance);
+      }
+    } catch (e) {
+      console.error("Audio init error:", e);
+    }
+
     processNextInQueue();
   }
 
@@ -248,12 +268,10 @@
 
     const duration = Math.max(18, calledHistory.length * 6);
 
-    // รีเซ็ต Animation ใหม่ทุกครั้งที่มีรายชื่อใหม่เพิ่มเข้ามา เพื่อให้เริ่มนับ 2 รอบใหม่
     tickerContent.style.animation = 'none';
     tickerContent.offsetHeight; 
     tickerContent.style.animation = `tickerScroll ${duration}s linear 2 forwards`;
 
-    // ซ่อนแถบตัววิ่งอัตโนมัติเมื่อวิ่งครบ 2 รอบ
     tickerContent.onanimationend = () => {
       tickerWrap.style.display = 'none';
     };
@@ -261,6 +279,10 @@
 
   function speakText(text, rate = 0.85) {
     return new Promise((resolve) => {
+      if (!('speechSynthesis' in window)) {
+        resolve();
+        return;
+      }
       const utterance = new SpeechSynthesisUtterance(text);
       const voices = window.speechSynthesis.getVoices();
       const ukFemale = voices.find(v => v.lang === 'en-GB' && v.name.includes('Female')) 
