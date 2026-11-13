@@ -14,10 +14,12 @@
     .input-group { margin-bottom: 15px; text-align: left; position: relative; }
     label { font-weight: 600; display: block; margin-bottom: 5px; color: #444; }
     input { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-    .search-results { position: absolute; width: 100%; max-height: 220px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; margin-top: 4px; display: none; }
+    input:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.15); }
+    .search-results { position: absolute; width: 100%; max-height: 240px; overflow-y: auto; background: white; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; margin-top: 4px; display: none; }
     .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
-    .result-item:hover { background-color: #e8f0fe; }
-    .year-badge { background: #1a73e8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+    .result-item:hover, .result-item.active { background-color: #e8f0fe; }
+    .highlight { color: #1a73e8; font-weight: 700; text-decoration: underline; }
+    .year-badge { background: #1a73e8; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; white-space: nowrap; margin-left: 8px; }
     .selected-box { background: #e6f4ea; border: 1px solid #34a853; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: none; }
     button { width: 100%; background-color: #1a73e8; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; }
     button:hover { background-color: #1557b0; }
@@ -33,7 +35,7 @@
     
     <div class="input-group">
       <label>Search Student Name / Nickname:</label>
-      <input type="text" id="searchInput" placeholder="Type name or nickname..." oninput="filterStudents()" autocomplete="off" disabled>
+      <input type="text" id="searchInput" placeholder="Start typing name or nickname..." oninput="filterStudents()" onkeydown="handleKeyDown(event)" autocomplete="off" disabled>
       <div id="searchResults" class="search-results"></div>
     </div>
 
@@ -63,7 +65,6 @@
   const database = firebase.database();
   const pickupRef = database.ref('pickup_queue');
 
-  // รหัส Sheet ID จาก Google Sheets ของคุณ
   const SHEET_ID = "1LXna7EyJxCEjpFdfTFdw9uFuheXM_2_opPUX_QaigdY";
 
   const COOLDOWN_TIME = 10 * 60 * 1000;
@@ -73,6 +74,8 @@
 
   let STUDENT_LIST = [];
   let selectedStudent = null;
+  let currentMatches = [];
+  let activeIndex = -1;
 
   async function loadStudentsFromSheet() {
     const loadingMsg = document.getElementById('loadingMsg');
@@ -108,121 +111,24 @@
 
   loadStudentsFromSheet();
 
+  // ไฮไลต์คำที่ตรงกับที่พิมพ์
+  function highlightMatch(text, query) {
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return text.replace(regex, '<span class="highlight">$1</span>');
+  }
+
   function filterStudents() {
-    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const query = document.getElementById('searchInput').value.trim();
+    const lowerQuery = query.toLowerCase();
     const resultsDiv = document.getElementById('searchResults');
     
     selectedStudent = null;
+    activeIndex = -1;
     document.getElementById('selectedBox').style.display = 'none';
     document.getElementById('btnRequest').disabled = true;
 
-    if (query.length < 2) {
+    // เดาคำตั้งแต่ตัวอักษรแรก (1 ตัวขึ้นไป)
+    if (query.length < 1) {
       resultsDiv.style.display = 'none';
-      return;
-    }
-
-    const matches = STUDENT_LIST.filter(s => s.name.toLowerCase().includes(query));
-    resultsDiv.innerHTML = '';
-
-    if (matches.length === 0) {
-      resultsDiv.innerHTML = '<div style="padding: 12px; color: #888; text-align: center;">No student found</div>';
-    } else {
-      matches.forEach(student => {
-        const div = document.createElement('div');
-        div.className = 'result-item';
-        div.innerHTML = `
-          <span>${student.name}</span>
-          <span class="year-badge">${student.year}</span>
-        `;
-        div.onclick = () => selectStudent(student);
-        resultsDiv.appendChild(div);
-      });
-    }
-
-    resultsDiv.style.display = 'block';
-  }
-
-  function selectStudent(student) {
-    selectedStudent = student;
-    document.getElementById('searchInput').value = student.name;
-    document.getElementById('searchResults').style.display = 'none';
-    
-    document.getElementById('selectedText').innerText = `${student.name} (${student.year})`;
-    document.getElementById('selectedBox').style.display = 'block';
-    document.getElementById('btnRequest').disabled = false;
-  }
-
-  function getDistanceInKm(lat1, lon1, lat2, lon2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-              Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2); 
-    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-  }
-
-  function checkGPSAndSubmit() {
-    if (!selectedStudent) return;
-
-    const btn = document.getElementById('btnRequest');
-    const statusMsg = document.getElementById('statusMsg');
-    const studentKey = `cooldown_${selectedStudent.name.toLowerCase()}`;
-    const lastCalled = localStorage.getItem(studentKey);
-    const now = Date.now();
-
-    if (lastCalled && (now - parseInt(lastCalled)) < COOLDOWN_TIME) {
-      const remainingMinutes = Math.ceil((COOLDOWN_TIME - (now - parseInt(lastCalled))) / 60000);
-      alert(`This student was recently requested. Please wait ${remainingMinutes} minute(s) before trying again.`);
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      alert("Geolocation is not supported by your browser.");
-      return;
-    }
-
-    btn.disabled = true;
-    statusMsg.style.color = "#1a73e8";
-    statusMsg.innerText = "Checking location...";
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const distance = getDistanceInKm(position.coords.latitude, position.coords.longitude, SCHOOL_LAT, SCHOOL_LNG);
-
-        if (distance > MAX_DISTANCE_KM) {
-          btn.disabled = false;
-          statusMsg.innerText = "";
-          alert(`You are too far from the school (${distance.toFixed(2)} km away). You must be within ${MAX_DISTANCE_KM * 1000} meters.`);
-          return;
-        }
-
-        const nicknameMatch = selectedStudent.name.match(/\(([^)]+)\)/);
-        const nickname = nicknameMatch ? nicknameMatch[1] : selectedStudent.name.split(' ')[0];
-        const cleanFullname = selectedStudent.name.replace(/\([^)]+\)\s*/g, '');
-
-        pickupRef.push({
-          nickname: nickname,
-          fullname: cleanFullname,
-          studentYear: selectedStudent.year,
-          timestamp: now
-        });
-
-        localStorage.setItem(studentKey, now.toString());
-        statusMsg.style.color = "#28a745";
-        statusMsg.innerText = `Request sent for ${selectedStudent.name} (${selectedStudent.year})!`;
-        
-        selectedStudent = null;
-        document.getElementById('searchInput').value = '';
-        document.getElementById('selectedBox').style.display = 'none';
-      },
-      () => {
-        btn.disabled = false;
-        statusMsg.innerText = "";
-        alert("Unable to retrieve your location. Please allow location access.");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  }
-</script>
-</body>
-</html>
+      currentMatches = [];
